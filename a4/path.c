@@ -64,11 +64,6 @@ char** parse_path(char *path, int *length) {
     }
     strcpy(result[0], "/");
 
-    // for (int i = 0; i < count; i++) {
-    //     printf(" %d", token_lens[i]);
-    // }
-    // printf("\n");
-
     k = 1;
     last_slash = 1;
     this_count = 0;
@@ -88,10 +83,6 @@ char** parse_path(char *path, int *length) {
         }
     }
     
-
-    for (int i = 0; i < count; i++) {
-        printf("%s\n", result[i]);
-    }
-    return NULL;
+    return result;
     
 }
