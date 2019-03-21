@@ -1,7 +1,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include "path.h"
+#include "ext2.h"
+
+/**
+ * try find the directory with name in the given block.
+ * Return -1 if the name doesn't exist, return -2 if the name exist but is a
+ * regular file
+ */ 
+static int find_directory(int block, char* name);
 
 /**
  * parse the path provided and return an array of all the folder tokens in 
@@ -85,4 +94,79 @@ char** parse_path(char *path, int *length) {
     
     return result;
     
+}
+
+int trace_path(char** path, int length) {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    struct ext2_inode *inodes = (struct ext2_inode*)
+            (disk + EXT2_BLOCK_SIZE * bd->bg_inode_table);
+    struct ext2_inode root_inode = inodes[EXT2_ROOT_INO - 1];
+    if (length == 1) {
+        return EXT2_ROOT_INO - 1;
+    }
+    
+    struct ext2_inode cur_inode = root_inode;
+
+    for (int i = 0; i < length - 1; i++) {
+        char* target = path[i+1];
+        int is_over = 0;
+        int has_find = 0;
+        int result = 0;
+        for (int k = 0; k < 12 && !is_over; k++) {
+            if (cur_inode.i_block[k] == 0) {
+                is_over = 0;
+                break;
+            }
+            result = find_directory(cur_inode.i_block[k], target);
+            if (result > 0) {
+                has_find = 1;
+                break;
+            } else if (result == -2) {
+                return -ENOENT;
+            }
+        }
+        if (has_find) {
+            cur_inode = inodes[result - 1];
+        }
+        if (has_find && i == length - 2) {
+            return result;
+        }    
+    }
+    return -ENOENT;
+}
+
+/**
+ * try find the directory with name in the given block.
+ * Return -1 if the name doesn't exist, return -2 if the name exist but is not a
+ * directory
+ */ 
+int find_directory(int block, char* name) {
+    unsigned char *this_block = disk + block * EXT2_BLOCK_SIZE;
+    struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)this_block;
+    int size = 0;
+    while (size != EXT2_BLOCK_SIZE) {
+        size += this_dir->rec_len;
+        char type = 0;
+        if ((this_dir->file_type & EXT2_FT_SYMLINK) == EXT2_FT_SYMLINK) {
+            type = 'l';
+        } else if ((this_dir->file_type & EXT2_FT_REG_FILE) == EXT2_FT_REG_FILE) {
+            type = 'f';
+        } else if ((this_dir->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+            type = 'd';
+        } else {
+            fprintf(stderr, "Unexpected type!\n");
+        }
+        char this_name[EXT2_NAME_LEN];
+        strncpy(this_name, this_dir->name, EXT2_NAME_LEN);
+        this_name[this_dir->name_len] = '\0';
+        if (strcmp(this_name, name) == 0) {
+            if (type == 'd') {
+                return this_dir->inode;
+            } else {
+                return -2;
+            }
+        }
+        this_dir = (struct ext2_dir_entry*)(this_block + size);
+    }
+    return -1;
 }
