@@ -13,22 +13,22 @@ unsigned char* disk;
 
 int main(int argc, char** argv) {
 
-    int fd = open(argv[1], O_RDWR);
-	if(fd == -1) {
-		perror("open");
-		exit(1);
-    }
+    // int fd = open(argv[1], O_RDWR);
+	// if(fd == -1) {
+	// 	perror("open");
+	// 	exit(1);
+    // }
 
-    disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if(disk == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
+    // disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // if(disk == MAP_FAILED) {
+    //     perror("mmap");
+    //     exit(1);
+    // }
 
-    int length;
-    char **path = parse_path(argv[2], &length);
-    int result = trace_path(path, length);
-    printf("%d\n", result);
+    // int length;
+    // char **path = parse_path(argv[2], &length);
+    // int result = trace_path(path, length);
+    printf("%lu\n", sizeof(struct ext2_dir_entry));
     return 0;
     
 }

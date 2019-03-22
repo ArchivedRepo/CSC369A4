@@ -2,24 +2,38 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <assert.h>
 #include "path.h"
 #include "ext2.h"
 
 /**
- * try find the directory with name in the given block.
- * Return -1 if the name doesn't exist, return -2 if the name exist but is a
- * regular file
- */ 
-static int find_directory(int block, char* name);
+ * Find the last non-zero entry in the i_block.
+ */
+static int find_last_nonzero(unsigned int *i_block) {
+    //The fisr entry should never be 0!
+    assert(i_block[0] != 0);
+    for (int i = 1; i < 15; i++) {
+        if (i_block[i] == 0) {
+            return i-1;
+        }
+    }
+    return -1;
+}
 
 /**
- * parse the path provided and return an array of all the folder tokens in 
- * the path, change length to the length of the path. Note that the first 
- * token in the returned array is always "/"
- * If the path is invalid, return NULL and left length unset.
- * The returned array and the strings in it is dynamically allocated and need to
- * be freed.
- */
+ * Find the last non-zero entry in a 1024 length array
+ */ 
+static int find_last_nonzero_1024(unsigned int* arr) {
+    assert(arr[0] != 0);
+    for (int i = 1; i < 1024 - 1; i++) {
+        if (arr[i] == 0) {
+            return i -1;
+        }
+    }
+    return 1023;
+}
+
+
 char** parse_path(char *path, int *length) {
     if (path[0] == '\0' || path[0] != '/') {
         fprintf(stderr, "Wrong format");
@@ -102,7 +116,7 @@ int trace_path(char** path, int length) {
             (disk + EXT2_BLOCK_SIZE * bd->bg_inode_table);
     struct ext2_inode root_inode = inodes[EXT2_ROOT_INO - 1];
     if (length == 1) {
-        return EXT2_ROOT_INO - 1;
+        return EXT2_ROOT_INO;
     }
     
     struct ext2_inode cur_inode = root_inode;
@@ -135,11 +149,6 @@ int trace_path(char** path, int length) {
     return -ENOENT;
 }
 
-/**
- * try find the directory with name in the given block.
- * Return -1 if the name doesn't exist, return -2 if the name exist but is not a
- * directory
- */ 
 int find_directory(int block, char* name) {
     unsigned char *this_block = disk + block * EXT2_BLOCK_SIZE;
     struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)this_block;
@@ -169,4 +178,203 @@ int find_directory(int block, char* name) {
         this_dir = (struct ext2_dir_entry*)(this_block + size);
     }
     return -1;
+}
+
+int find_directory_inode(int inode, char* name) {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    struct ext2_inode *inodes = 
+    (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
+    struct ext2_inode this_inode = inodes[inode - 1];
+    int is_over = 0;
+    for (int i = 0; i < 12 && !is_over; i++) {
+        if (this_inode.i_block[i] == 0) {
+            is_over = 1;
+            break;
+        }
+        int result = find_directory(this_inode.i_block[i], name);
+        if (result > 0 || result == -2) {
+            return -2;
+        }
+    }
+    return -1;
+}
+
+int allocate_inode() {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    char *inode_bitmap = (char*)(disk + (EXT2_BLOCK_SIZE) * bd->bg_inode_bitmap);
+    int inode_amount = ((struct ext2_super_block *)(disk + 1024))->s_inodes_count;
+    for (int i = 0; i < inode_amount; i++) {
+        if (!(*(inode_bitmap + i / 8) & (1 << (i % 8)))) {
+            *(inode_bitmap + i/8) |= 1 << (i % 8);
+            struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+            bd->bg_free_inodes_count--;
+            return i;
+        }
+    }
+    return -1;
+}
+
+int allocate_block() {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    char *block_bitmap = (char*)(disk+(EXT2_BLOCK_SIZE) * bd->bg_block_bitmap);
+    int block_count = ((struct ext2_super_block *)(disk + 1024))->s_blocks_count;
+    for (int i = 0; i < block_count; i++) {
+        if (!(*(block_bitmap + i / 8) & (1 << (i % 8)))) {
+            *(block_bitmap + i/8) |= 1 << (i % 8);
+            struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+            bd->bg_free_blocks_count--;
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Try find space and allocate an ext2_dir_entry in the given block.
+ * Return the pointer to the struct on success, return NULL on Fail
+ */ 
+static struct ext2_dir_entry* find_space_in_block(unsigned char *block, char *name) {
+    unsigned char *origin = block;
+    int size = 0;
+    struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry*)block;
+    size += cur_entry->rec_len;
+    while (size != EXT2_BLOCK_SIZE) {
+        cur_entry = (struct ext2_dir_entry*)(block + size);
+        size += cur_entry->rec_len;
+    }
+    int length_needed = strlen(name) + 8;
+    int actual_length = 8 + cur_entry->name_len;
+    if (actual_length % 4 != 0) {
+        actual_length += 4 - actual_length % 4;
+    }
+    printf("%d\n", actual_length);
+    printf("%d\n", cur_entry->rec_len);
+    size -= cur_entry->rec_len;
+    int length_left = cur_entry ->rec_len - actual_length;
+    if (length_left > length_needed) {
+        cur_entry->rec_len = actual_length;
+        cur_entry = (struct ext2_dir_entry*)(block + size + actual_length);
+        size += actual_length;
+        printf("%d\n", size);
+        cur_entry->rec_len = EXT2_BLOCK_SIZE - size;
+        cur_entry->name_len = strlen(name);
+        for (int i = 0; i < strlen(name); i++) {
+            cur_entry->name[i] = name[i];
+        }
+        return cur_entry;
+    }
+    return NULL;
+}
+
+
+/**
+ * Create a new directory entry in the given inode with provided name.
+ * This function simple find the space, but left inode and file_typr unset.
+ * Note: 1. the inode number provided must be an entry
+ *       2. the inode number provided will be minus one to index the inode
+ * Return a pointer to the new ext2_dir_entry on success, return NULL on failure.
+ */ 
+struct ext2_dir_entry* create_directory(int inode, char *name) {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+
+    struct ext2_inode *inodes = 
+    (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
+    struct ext2_inode *this_inode = inodes + (inode - 1);
+    int last_nonzero = find_last_nonzero(this_inode->i_block);
+    // We don't deal with double/triple indirect
+    assert(last_nonzero < 14);
+
+    if (last_nonzero <= 10) {
+        unsigned char *this_block = disk + EXT2_BLOCK_SIZE * (this_inode->i_block)[last_nonzero];
+        struct ext2_dir_entry *result = find_space_in_block(this_block, name);
+        if (result != NULL) {
+            return result;
+        }
+        //need a new block
+        last_nonzero++;
+        int new_block = allocate_block();
+        if (new_block == -1) {
+            fprintf(stderr, "There is no space left on disk");
+            exit(-ENOSPC);
+        }
+        (this_inode->i_block)[last_nonzero] = new_block;
+        // Clear the disk block
+        memset(disk+EXT2_BLOCK_SIZE*new_block, 0, EXT2_BLOCK_SIZE);
+        struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)
+            (disk + EXT2_BLOCK_SIZE * new_block);
+        this_dir->inode = inode;
+        this_dir->name_len = strlen(name);
+        for (int i = 0; i < this_dir->name_len; i++) {
+            this_dir->name[i] = name[i];
+        }
+        // This is the only directory, set length to 1024
+        this_dir->rec_len = 1024;
+    } else if (last_nonzero == 11) {// the nonzero is the last direct block {
+        unsigned char *this_block = disk + EXT2_BLOCK_SIZE * (this_inode->i_block)[last_nonzero];
+        struct ext2_dir_entry *result = find_space_in_block(this_block, name);
+        if (result != NULL) {
+            return result;
+        }
+        //Need a new block with single indirecton
+        int new_indirect_block = allocate_block();
+        if (new_indirect_block == -1) {
+            fprintf(stderr, "There is no space on the disk!");
+            exit(-ENOSPC);
+        }
+        //Clear the new block
+        memset(disk+EXT2_BLOCK_SIZE*new_indirect_block, 0, 1024);
+        (this_inode->i_block)[12] = new_indirect_block;
+        unsigned int *indirect_blocks = 
+        (unsigned int *)(disk + EXT2_BLOCK_SIZE * new_indirect_block);
+        int new_block = allocate_block();
+        if (new_block == -1) {
+            fprintf(stderr, "There is no space on the disk");
+            exit(-ENOSPC);
+        }
+        indirect_blocks[0] = new_block;
+        memset(disk+EXT2_BLOCK_SIZE*new_block, 0, 1024);
+        struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)
+            (disk + EXT2_BLOCK_SIZE * new_block);
+        this_dir->inode = inode;
+        this_dir->name_len = strlen(name);
+        for (int i = 0; i < this_dir->name_len; i++) {
+            this_dir->name[i] = name[i];
+        }
+        // This is the only directory, set length to 1024
+        this_dir->rec_len = 1024;
+        return this_dir;
+    } else if (last_nonzero == 12) {
+        unsigned int *blocks = (unsigned int*)(disk + EXT2_BLOCK_SIZE*(this_inode->i_block)[12]);
+        int last_nonzero = find_last_nonzero_1024(blocks);
+        unsigned char *this_block = 
+        disk + EXT2_BLOCK_SIZE * blocks[last_nonzero];
+        struct ext2_dir_entry *result = find_space_in_block(this_block, name);
+        if (result != NULL) {
+            return result;
+        } else if (result == NULL && last_nonzero == 1023) {
+            fprintf(stderr, "Unable to handle the case that need double indirect");
+            exit(-ENOSPC);
+        }
+        last_nonzero++;
+        int new_block = allocate_block();
+        if (new_block == -1) {
+            fprintf(stderr, "There is no space on the disk\n");
+            exit(-ENOSPC);
+        }
+        blocks[last_nonzero] = new_block;
+        memset(disk+EXT2_BLOCK_SIZE*new_block, 0, 1024);
+        struct ext2_dir_entry *new_entry = (struct ext2_dir_entry*)
+        (disk + EXT2_BLOCK_SIZE * new_block);
+        new_entry->inode = inode;
+        new_entry->rec_len = 1024;
+        new_entry->name_len = strlen(name);
+        for (int i = 0; i < new_entry->name_len; i++) {
+            new_entry->name[i] = name[i];
+        }
+        return new_entry;
+    } else {
+        //should not reach here
+        assert(0);
+    }
+    return NULL;
 }
