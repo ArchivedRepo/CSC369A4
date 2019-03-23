@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
     this_inode->i_gid = 0;
     this_inode->i_mode = EXT2_S_IFDIR;
     this_inode->i_size = 1024;
-    this_inode->i_links_count = 1;
+    this_inode->i_links_count = 2;
     this_inode->i_blocks = 2;
     this_inode->i_generation = 0;
     memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
