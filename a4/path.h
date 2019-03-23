@@ -6,6 +6,7 @@ extern unsigned char *disk;
  * a directory.
  */ 
 int find_directory(int block, char* name);
+int find_file(int block, char* name);
 
 /**
  * parse the path provided and return an array of all the folder tokens in 
@@ -35,6 +36,7 @@ int trace_path(char** path, int length);
  * not a directory.
  */ 
 int find_directory_inode(int inode, char* name); 
+int find_file_inode(int inode, char* name);
 
 /**
  * Allocate an inode and mark the inode to be in use in the bitmap.

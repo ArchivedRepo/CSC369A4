@@ -199,6 +199,57 @@ int find_directory_inode(int inode, char* name) {
     return -1;
 }
 
+
+int find_file(int block, char* name) {
+    unsigned char *this_block = disk + block * EXT2_BLOCK_SIZE;
+    struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)this_block;
+    int size = 0;
+    while (size != EXT2_BLOCK_SIZE) {
+        size += this_dir->rec_len;
+        char type = 0;
+        if ((this_dir->file_type & EXT2_FT_SYMLINK) == EXT2_FT_SYMLINK) {
+            type = 'l';
+        } else if ((this_dir->file_type & EXT2_FT_REG_FILE) == EXT2_FT_REG_FILE) {
+            type = 'f';
+        } else if ((this_dir->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+            type = 'd';
+        } else {
+            fprintf(stderr, "Unexpected type!\n");
+        }
+        char this_name[EXT2_NAME_LEN];
+        strncpy(this_name, this_dir->name, EXT2_NAME_LEN);
+        this_name[this_dir->name_len] = '\0';
+        if (strcmp(this_name, name) == 0) {
+            if (type != 'd') {
+                return this_dir->inode;
+            } else {
+                return -2;
+            }
+        }
+        this_dir = (struct ext2_dir_entry*)(this_block + size);
+    }
+    return -1;
+}
+
+int find_file_inode(int inode, char* name) {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    struct ext2_inode *inodes = 
+    (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
+    struct ext2_inode this_inode = inodes[inode - 1];
+    int is_over = 0;
+    for (int i = 0; i < 12 && !is_over; i++) {
+        if (this_inode.i_block[i] == 0) {
+            is_over = 1;
+            break;
+        }
+        int result = find_file(this_inode.i_block[i], name);
+        if (result > 0 || result == -2) {
+            return result;
+        }
+    }
+    return -1;
+}
+
 int allocate_inode() {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + EXT2_BLOCK_SIZE * 2);
     char *inode_bitmap = (char*)(disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap);
