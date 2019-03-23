@@ -19,9 +19,7 @@ int main(int argc, char** argv) {
     int opt;
     char mode = 1;
 
-    //This part is problematic! This cannot correctly intepreate the command
-    // line argument!
-    if ((opt = getopt(argc, argv, "s:")) != -1){
+    if ((opt = getopt(argc, argv, "s")) != -1){
         mode = 1;
     }
 
@@ -149,7 +147,6 @@ int main(int argc, char** argv) {
 
         // copying path into data block
         char *this_block = (char*)disk + EXT2_BLOCK_SIZE * new_block;
-        //TODO: Should probably store a relative path here!
         strncpy(this_block, argv[3], strlen(argv[3]) + 1); // TODO: null terminate?
        
     }
