@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
         this_inode->i_blocks += 2;
         
         unsigned char *indirect_block = disk + EXT2_BLOCK_SIZE * level_one;
-
+        memset(indirect_block, 0, EXT2_BLOCK_SIZE);
         int pointer_count = 0; // Note: already checked file size, so it won't go over 256
         while(size_remain > 0){
             int new_block = allocate_block();
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
                 return -ENOSPC;
             }
 
-            int *pointer = (int *)indirect_block + pointer_count * 4;
+            int *pointer = ((int *)indirect_block) + pointer_count;
             pointer[0] = new_block;
             pointer_count++;
             this_inode->i_blocks += 2;
@@ -185,6 +185,7 @@ int main(int argc, char** argv) {
 
             // write to block
             unsigned char *this_block = disk + EXT2_BLOCK_SIZE * new_block;
+            memset(this_block, 0, EXT2_BLOCK_SIZE);
             for(int j = 0; j < 1024; j++){
                 this_block[j] = buf[j];
             }
