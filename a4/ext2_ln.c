@@ -15,9 +15,16 @@
 unsigned char *disk;
 
 int main(int argc, char** argv) {
-    
-    if(argc != 4) {
-        fprintf(stderr, "Usage: ext2_ln <image file name> <source path> <dest path>\n");
+
+    int opt;
+    char mode = 0;
+
+    if ((opt = getopt(argc, argv, "s:")) != -1){
+        mode = 1;
+    }
+
+    if(argc != 4 + mode) {
+        fprintf(stderr, "Usage: ext2_ln <image file name> (-s) <source path> <dest path>\n");
         exit(1);
     }
 
@@ -45,7 +52,7 @@ int main(int argc, char** argv) {
 
     // find source
     int len_s;
-    char **path_s = parse_path(argv[2], &len_s);
+    char **path_s = parse_path(argv[2+mode], &len_s);
     if (path_s == NULL) {
         return -1;
     }
@@ -63,14 +70,17 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Source file doesn't exist\n");
         return -ENOENT;
     }else if(source_inode == -2){
-        fprintf(stderr, "Source file is directory\n");
-        return -EISDIR;
+        // if work on hardlink
+        if(mode == 0){
+            fprintf(stderr, "Source file is directory\n");
+            return -EISDIR;
+        }
     }
 
 
     // find destination
     int length;
-    char **path = parse_path(argv[3], &length);
+    char **path = parse_path(argv[3+mode], &length);
     if (path == NULL) {
         return -1;
     }
@@ -96,19 +106,55 @@ int main(int argc, char** argv) {
     }
 
 
-    // Add file to target_directory
     struct ext2_dir_entry *new_entry = create_directory(target_directory, path[length-1]);
-    new_entry->inode = source_inode;
-    new_entry->file_type = EXT2_FT_REG_FILE;
     
     // Increase target_dir link count
     struct ext2_inode *parent = &inodes[target_directory-1];
     parent->i_links_count ++;
+    
+    if(mode == 0){
+        new_entry->inode = source_inode;
+        new_entry->file_type = EXT2_FT_REG_FILE;
 
+        // Increase source file link count
+        struct ext2_inode *this_inode = inodes + source_inode - 1; //-1 for the index in bitmap
+        this_inode->i_links_count ++;
 
-    // Increase source file link count
-    struct ext2_inode *this_inode = inodes + source_inode - 1; //-1 for the index in bitmap
-    this_inode->i_links_count ++;
+    }else{
+        int new_inode = allocate_inode();
+        if (new_inode == -1) {
+            fprintf(stderr, "There is no inode available\n");
+            return -ENOSPC;
+        }
+        new_entry->inode = new_inode + 1;
+        new_entry->file_type = EXT2_FT_SYMLINK;
+
+        // setting inode fields
+        struct ext2_inode *this_inode = inodes + new_inode;
+        this_inode->i_mode = EXT2_S_IFLNK;
+        this_inode->i_uid = 0;
+        this_inode->i_gid = 0;
+        // this_inode->i_ctime = ;
+        // this_inode->i_dtime = ;
+        this_inode->i_links_count = 1;
+        this_inode->osd1 = 0;
+        this_inode->i_generation = 0;
+        // this_inode->i_size = ; 
+        this_inode->i_blocks = 0;   
+        memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
+
+        // allocate new block to store link
+        int new_block = allocate_block();
+        if (new_block == -1) {
+            fprintf(stderr, "There is no space on the disk!");
+            return -ENOSPC;
+        }
+        this_inode->i_block[0] = new_block;
+        this_inode->i_blocks += 2;
+
+        // copying path into data block
+    }
+    
     
 
     close(fd);
