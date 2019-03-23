@@ -200,13 +200,12 @@ int find_directory_inode(int inode, char* name) {
 }
 
 int allocate_inode() {
-    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
-    char *inode_bitmap = (char*)(disk + (EXT2_BLOCK_SIZE) * bd->bg_inode_bitmap);
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + EXT2_BLOCK_SIZE * 2);
+    char *inode_bitmap = (char*)(disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap);
     int inode_amount = ((struct ext2_super_block *)(disk + 1024))->s_inodes_count;
     for (int i = 0; i < inode_amount; i++) {
         if (!(*(inode_bitmap + i / 8) & (1 << (i % 8)))) {
             *(inode_bitmap + i/8) |= 1 << (i % 8);
-            struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
             bd->bg_free_inodes_count--;
             return i;
         }
@@ -215,15 +214,14 @@ int allocate_inode() {
 }
 
 int allocate_block() {
-    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
-    char *block_bitmap = (char*)(disk+(EXT2_BLOCK_SIZE) * bd->bg_block_bitmap);
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + EXT2_BLOCK_SIZE * 2);
+    char *block_bitmap = (char*)(disk+ EXT2_BLOCK_SIZE * bd->bg_block_bitmap);
     int block_count = ((struct ext2_super_block *)(disk + 1024))->s_blocks_count;
     for (int i = 0; i < block_count; i++) {
         if (!(*(block_bitmap + i / 8) & (1 << (i % 8)))) {
             *(block_bitmap + i/8) |= 1 << (i % 8);
-            struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
             bd->bg_free_blocks_count--;
-            return i;
+            return i+1;
         }
     }
     return -1;

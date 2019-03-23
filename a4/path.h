@@ -52,7 +52,7 @@ int allocate_block();
 
 /**
  * Create a new directory entry in the given inode with provided name.
- * This function simple find the space, but left inode and file_typr unset.
+ * This function simple find the space, but left inode and file_type unset.
  * Note: 1. the inode number provided must be an entry
  *       2. the inode number provided should be index(i.e. don't need to minus 1)
  * Return a pointer to the new ext2_dir_entry on success, return NULL on failure.
