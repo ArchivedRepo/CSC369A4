@@ -174,6 +174,7 @@ int main(int argc, char** argv) {
             int *pointer = (int *)indirect_block + pointer_count * 4;
             pointer[0] = new_block;
             pointer_count++;
+            this_inode->i_blocks += 2;
 
 
             // read from source
