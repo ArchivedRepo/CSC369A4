@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     struct ext2_dir_entry *new_entry = create_directory(target_directory, path[length-1]);
 
     int new_inode = allocate_inode();
-    if (new_inode == -1) {
+    if (new_inode == ERR_NO_INODE) {
         fprintf(stderr, "There is no inode available");
         return -ENOSPC;
     }
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
     this_inode->i_generation = 0;
     memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
     int new_block = allocate_block();
-    if (new_block == -1) {
+    if (new_block == ERR_NO_BLOCK) {
         fprintf(stderr, "There is no space on the disk!");
         return -ENOSPC;
     }
@@ -104,5 +104,8 @@ int main(int argc, char** argv) {
     // rec_len is set to be 1012
     cur_entry[0].rec_len = 1012;
     bd->bg_used_dirs_count++;
+    // Increase the link count of the parent directory
+    struct ext2_inode *parent = &inodes[target_directory-1];
+    parent->i_links_count++;
     return 0;
 }
