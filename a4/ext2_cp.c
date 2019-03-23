@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
     stat(argv[2], &st);
     if(st.st_size > 12*1024 + 256*1024){
         fprintf(stderr, "File too large.\n");
+        exit(-ENOSPC);
     }
 
 
@@ -73,10 +74,7 @@ int main(int argc, char** argv) {
     // Check whether the file already exist
     int find_result = find_directory_inode(target_directory, path[length-1]);
     
-    if (find_result == 1) {
-        fprintf(stderr, "This file already exist");
-        return -EEXIST;
-    } else if (find_result == -2) {
+    if (find_result == ERR_NAME_EXIST) {
         fprintf(stderr, "There is a file has the name of the directory to create\n");
         return -EEXIST;
     } else if (find_result != -1) {
@@ -87,7 +85,7 @@ int main(int argc, char** argv) {
 
     // Allocate inode for new file
     int new_inode = allocate_inode();
-    if (new_inode == -1) {
+    if (new_inode == ERR_NO_INODE) {
         fprintf(stderr, "There is no inode available\n");
         return -ENOSPC;
     }
@@ -135,8 +133,8 @@ int main(int argc, char** argv) {
 
         // read from source
         char buf[1024];
-        memset(&buf, 0, 1024);
-        if(read(fd_s, &buf, 1024) < 0){
+        memset(buf, 0, 1024);
+        if(read(fd_s, buf, 1024) < 0){
             perror("read");
             exit(1);
         }
@@ -179,8 +177,8 @@ int main(int argc, char** argv) {
 
             // read from source
             char buf[1024];
-            memset(&buf, 0, 1024);
-            if(read(fd_s, &buf, 1024) < 0){
+            memset(buf, 0, 1024);
+            if(read(fd_s, buf, 1024) < 0){
                 perror("read");
                 exit(1);
             }
