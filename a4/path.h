@@ -1,8 +1,14 @@
+#define ERR_NAME_EXIST -2
+#define ERR_NOT_EXIST -1
+#define ERR_NO_INODE -1
+#define ERR_NO_BLOCK -1
+
 extern unsigned char *disk;
 
 /**
  * try find the directory with name in the given block.
- * Return -1 if the name doesn't exist, return -2 if the name exist but is not
+ * Return ERR_NOT_EXIST if the name doesn't exist,
+ * return ERR_NAME_EXIST if the name exist but is not
  * a directory.
  */ 
 int find_directory(int block, char* name);
@@ -31,16 +37,15 @@ int trace_path(char** path, int length);
 
 /**
  * Try find the directory with given name in the given block.
- * Return 1 if the name exist as a directory.
- * Return -1 if the name doesn't exist, return -2 if the name exist but it is 
- * not a directory.
+ * Return ERR_NOT_EXIST if the name doesn't exist, 
+ * return ERR_NAME_EXIST if the name already exist.
  */ 
 int find_directory_inode(int inode, char* name); 
 int find_file_inode(int inode, char* name);
 
 /**
  * Allocate an inode and mark the inode to be in use in the bitmap.
- * Return the inode index on success, return -1 if no inode is available
+ * Return the inode index on success, return ERR_NO_BLOCK if no inode is available
  * Note: the number returned in this function is the actual index in the 
  * inodes array.
  */
@@ -48,7 +53,7 @@ int allocate_inode();
 
 /**
  * Allocate an block and mark the inode to be in use in the bitmap. 
- * Return the block index on success, return -1 if no block is available.
+ * Return the block index on success, return ERR_NO_INODE if no block is available.
  */ 
 int allocate_block();
 

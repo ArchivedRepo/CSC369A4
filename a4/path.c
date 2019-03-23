@@ -172,12 +172,12 @@ int find_directory(int block, char* name) {
             if (type == 'd') {
                 return this_dir->inode;
             } else {
-                return -2;
+                return ERR_NAME_EXIST;
             }
         }
         this_dir = (struct ext2_dir_entry*)(this_block + size);
     }
-    return -1;
+    return ERR_NOT_EXIST;
 }
 
 int find_directory_inode(int inode, char* name) {
@@ -193,10 +193,10 @@ int find_directory_inode(int inode, char* name) {
         }
         int result = find_directory(this_inode.i_block[i], name);
         if (result > 0 || result == -2) {
-            return -2;
+            return ERR_NAME_EXIST;
         }
     }
-    return -1;
+    return ERR_NOT_EXIST;
 }
 
 
@@ -261,7 +261,7 @@ int allocate_inode() {
             return i;
         }
     }
-    return -1;
+    return ERR_NO_INODE;
 }
 
 int allocate_block() {
@@ -275,7 +275,7 @@ int allocate_block() {
             return i+1;
         }
     }
-    return -1;
+    return ERR_NO_BLOCK;
 }
 
 /**

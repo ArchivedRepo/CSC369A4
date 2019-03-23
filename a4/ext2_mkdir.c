@@ -51,11 +51,9 @@ int main(int argc, char** argv) {
     }
 
     int find_result = find_directory_inode(target_directory, path[length-1]);
-    if (find_result == 1) {
-        fprintf(stderr, "This directory already exist");
-        return -EEXIST;
-    } else if (find_result == -2) {
+    if (find_result == -2) {
         fprintf(stderr, "There is a file has the name of the directory to create\n");
+        return -1;
     } else if (find_result != -1) {
         //Should never reach here.
         assert(0);
