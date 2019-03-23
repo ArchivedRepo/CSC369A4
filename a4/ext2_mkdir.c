@@ -103,5 +103,6 @@ int main(int argc, char** argv) {
     //The actual size is 10, but this is currently the last entry
     // rec_len is set to be 1012
     cur_entry[0].rec_len = 1012;
+    bd->bg_used_dirs_count++;
     return 0;
 }

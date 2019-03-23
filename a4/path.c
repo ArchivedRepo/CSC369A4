@@ -358,6 +358,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         }
         // This is the only directory, set length to 1024
         this_dir->rec_len = 1024;
+        return this_dir;
     } else if (last_nonzero == 11) {// the nonzero is the last direct block {
         unsigned char *this_block = disk + EXT2_BLOCK_SIZE * (this_inode->i_block)[last_nonzero];
         struct ext2_dir_entry *result = find_space_in_block(this_block, name);
