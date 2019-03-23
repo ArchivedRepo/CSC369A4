@@ -17,7 +17,7 @@ unsigned char *disk;
 int main(int argc, char** argv) {
     
     if(argc != 4) {
-        fprintf(stderr, "Usage: ext2_cp <image file name> <path to source file> <path to dest>");
+        fprintf(stderr, "Usage: ext2_cp <image file name> <path to source file> <path to dest>\n");
         exit(1);
     }
 
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     new_entry->file_type = EXT2_FT_REG_FILE;
     
     // Increase target_dir link count
-    struct ext2_inode *parent = &inodes[target_directory];
+    struct ext2_inode *parent = &inodes[target_directory-1];
     parent->i_links_count ++;
 
 
