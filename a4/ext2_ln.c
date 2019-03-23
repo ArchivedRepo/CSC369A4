@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
         this_inode->i_links_count = 1;
         this_inode->osd1 = 0;
         this_inode->i_generation = 0;
-        // this_inode->i_size = ; 
+        this_inode->i_size = strlen(argv[4]); 
         this_inode->i_blocks = 0;   
         memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
 
@@ -153,6 +153,8 @@ int main(int argc, char** argv) {
         this_inode->i_blocks += 2;
 
         // copying path into data block
+        char *this_block = disk + EXT2_BLOCK_SIZE * new_block;
+        strncpy(this_block, argv[4], strlen(argv[4])); // TODO: null terminate?
     }
     
     
