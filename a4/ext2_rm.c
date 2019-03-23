@@ -11,8 +11,6 @@
 #include "path.h"
 #include "ext2.h"
 
-//TODO: Check what to return upon no inode/block available
-//TODO: Implement single indirect in path.c
 unsigned char *disk;
 
 int main(int argc, char** argv) {
@@ -33,6 +31,7 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
 
     struct ext2_inode *inodes = 

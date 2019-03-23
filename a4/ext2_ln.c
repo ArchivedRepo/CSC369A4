@@ -42,7 +42,6 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
 
     struct ext2_inode *inodes = 

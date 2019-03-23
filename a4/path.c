@@ -283,7 +283,6 @@ int allocate_block() {
  * Return the pointer to the struct on success, return NULL on Fail
  */ 
 static struct ext2_dir_entry* find_space_in_block(unsigned char *block, char *name) {
-    unsigned char *origin = block;
     int size = 0;
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry*)block;
     size += cur_entry->rec_len;
