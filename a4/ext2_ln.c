@@ -17,8 +17,10 @@ unsigned char *disk;
 int main(int argc, char** argv) {
 
     int opt;
-    char mode = 0;
+    char mode = 1;
 
+    //This part is problematic! This cannot correctly intepreate the command
+    // line argument!
     if ((opt = getopt(argc, argv, "s:")) != -1){
         mode = 1;
     }
@@ -94,10 +96,7 @@ int main(int argc, char** argv) {
     // Check whether the file already exist
     int find_result = find_directory_inode(target_directory, path[length-1]);
     
-    if (find_result == 1) {
-        fprintf(stderr, "This file already exist");
-        return -EEXIST;
-    } else if (find_result == -2) {
+    if (find_result == -2) {
         fprintf(stderr, "There is a file has the name of the directory to create\n");
         return -EEXIST;
     } else if (find_result != -1) {
@@ -107,10 +106,6 @@ int main(int argc, char** argv) {
 
 
     struct ext2_dir_entry *new_entry = create_directory(target_directory, path[length-1]);
-    
-    // Increase target_dir link count
-    struct ext2_inode *parent = &inodes[target_directory-1];
-    parent->i_links_count ++;
     
     if(mode == 0){
         new_entry->inode = source_inode;
@@ -153,8 +148,10 @@ int main(int argc, char** argv) {
         this_inode->i_blocks += 2;
 
         // copying path into data block
-        char *this_block = disk + EXT2_BLOCK_SIZE * new_block;
-        strncpy(this_block, argv[4], strlen(argv[4])); // TODO: null terminate?
+        char *this_block = (char*)disk + EXT2_BLOCK_SIZE * new_block;
+        //TODO: Should probably store a relative path here!
+        strncpy(this_block, argv[3], strlen(argv[3]) + 1); // TODO: null terminate?
+       
     }
     
     
