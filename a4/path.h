@@ -1,7 +1,8 @@
-#define ERR_NAME_EXIST -2
+//#define ERR_NAME_EXIST -2
 #define ERR_NOT_EXIST -1
 #define ERR_NO_INODE -1
 #define ERR_NO_BLOCK -1
+#define ERR_WRONG_TYPE -3
 
 extern unsigned char *disk;
 
@@ -11,8 +12,17 @@ extern unsigned char *disk;
  * return ERR_NAME_EXIST if the name exist but is not
  * a directory.
  */ 
-int find_directory(int block, char* name);
-int find_file(int block, char* name);
+// int find_directory(int block, char* name);
+// int find_file(int block, char* name);
+
+/**
+ * try find the directory entry with name and given type in the given block.
+ * Return the inode number of the file on found.
+ * Return ERR_NOT_EXIST if the name doesn't exist,
+ * Return ERR_WRONG_TYPE if the name exist but no as given type
+ */ 
+int find_in_block(int block, char* name, char type);
+
 
 /**
  * parse the path provided and return an array of all the folder tokens in 
@@ -36,12 +46,20 @@ char** parse_path(char *path, int *length);
 int trace_path(char** path, int length);
 
 /**
- * Try find the directory with given name in the given block.
+ * Try find the directory with given name and type in the given inode.
  * Return ERR_NOT_EXIST if the name doesn't exist, 
  * return ERR_NAME_EXIST if the name already exist.
  */ 
-int find_directory_inode(int inode, char* name); 
-int find_file_inode(int inode, char* name);
+// int find_directory_inode(int inode, char* name); 
+// int find_file_inode(int inode, char* name);
+
+/**
+ * Try find the directory with given name and type in the given inode.
+ * Return the inode number of the file on found.
+ * Return ERR_NOT_EXIST if the name doesn't exist, 
+ * Return ERR_WRONG_TYPE if the name exist but no as given type
+ */ 
+int find_in_inode(int inode, char* name, char type);
 
 /**
  * Allocate an inode and mark the inode to be in use in the bitmap.

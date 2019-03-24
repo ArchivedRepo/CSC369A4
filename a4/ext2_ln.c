@@ -64,15 +64,19 @@ int main(int argc, char** argv) {
 
     // TODO: align with path.c
     // find the inode for source file
-    int source_inode = find_file_inode(source_directory, path_s[len_s-1]); 
-    if (source_inode == -1) {
+    int source_inode = find_in_inode(source_directory, path_s[len_s-1], 'f'); 
+    if (source_inode == ERR_NOT_EXIST) {
         fprintf(stderr, "Source file doesn't exist\n");
         return -ENOENT;
-    }else if(source_inode == -2){
-        // if work on hardlink
-        if(mode == 0){
-            fprintf(stderr, "Source file is directory\n");
-            return -EISDIR;
+    }else if(source_inode == ERR_WRONG_TYPE){
+        // Search again to see if this is a symbolic link
+        source_inode = find_in_inode(source_directory, path_s[len_s-1], 'l');
+        if (source_inode == ERR_WRONG_TYPE) {
+            // if work on hardlink
+            if(mode == 0){
+                fprintf(stderr, "Source file is not a regular file\n");
+                return -EISDIR;
+            }
         }
     }
 
@@ -91,12 +95,12 @@ int main(int argc, char** argv) {
 
 
     // Check whether the file already exist
-    int find_result = find_directory_inode(target_directory, path[length-1]);
+    int find_result = find_in_inode(target_directory, path[length-1], 'd');
     
-    if (find_result == -2) {
-        fprintf(stderr, "There is a file has the name of the directory to create\n");
+    if (find_result > 0 || find_result == ERR_WRONG_TYPE) {
+        fprintf(stderr, "There is a file has the name of the link to create\n");
         return -EEXIST;
-    } else if (find_result != -1) {
+    } else if (find_result != ERR_NOT_EXIST) {
         //Should never reach here.
         assert(0);
     }

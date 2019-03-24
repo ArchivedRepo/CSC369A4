@@ -71,10 +71,10 @@ int main(int argc, char** argv) {
 
 
     // Check whether the file already exist
-    int find_result = find_directory_inode(target_directory, path[length-1]);
+    int find_result = find_in_inode(target_directory, path[length-1], 'd');
     
-    if (find_result == ERR_NAME_EXIST) {
-        fprintf(stderr, "There is a file has the name of the directory to create\n");
+    if (find_result > 0 || find_result == ERR_WRONG_TYPE) {
+        fprintf(stderr, "The file already exists\n");
         return -EEXIST;
     } else if (find_result != -1) {
         //Should never reach here.
