@@ -3,6 +3,7 @@
 #define ERR_NO_INODE -1
 #define ERR_NO_BLOCK -1
 #define ERR_WRONG_TYPE -3
+#define DELETE_SUCCESS 0
 
 extern unsigned char *disk;
 
@@ -83,3 +84,9 @@ int allocate_block();
  * Return a pointer to the new ext2_dir_entry on success, return NULL on failure.
  */ 
 struct ext2_dir_entry* create_directory(int inode, char *name);
+
+/**
+ * Try delete the file in the block;
+ * Return DELETE_SUCCESS on success, return ERR_NOT_EXIST on not found
+ */ 
+int delete_entry_in_block(int block, char *name);

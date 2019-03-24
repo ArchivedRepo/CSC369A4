@@ -226,7 +226,7 @@ int allocate_block() {
             *(block_bitmap + i/8) |= 1 << (i % 8);
             sb->s_free_blocks_count--;
             bd->bg_free_blocks_count--;
-            return i+1;
+            return i;
         }
     }
     return ERR_NO_BLOCK;
@@ -380,4 +380,33 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         assert(0);
     }
     return NULL;
+}
+
+int delete_entry_in_block(int block, char *name) {
+    int size = 0;
+    unsigned char *this_block = disk + EXT2_BLOCK_SIZE * block;
+    struct ext2_dir_entry *last_entry = NULL;
+    struct ext2_dir_entry *this_entry = (struct ext2_dir_entry*)this_block;
+    char this_name[this_entry->name_len + 1];
+    strncpy(this_name, this_entry->name, this_entry->name_len);
+    this_name[this_entry->name_len] = '\0';
+    if (strcmp(this_name, name) == 0 && this_entry->inode != 0) {
+        //This is the first entry in the block
+        this_entry->inode = 0;
+        return DELETE_SUCCESS;
+    }
+    size += this_entry->rec_len;
+    while (size < EXT2_BLOCK_SIZE) {
+        last_entry = this_entry;
+        this_entry = (struct ext2_dir_entry*)(this_block + size);
+        char this_name[this_entry->name_len + 1];
+        strncpy(this_name, this_entry->name, this_entry->name_len);
+        this_name[this_entry->name_len] = '\0';
+        if (strcmp(this_name, name) == 0 && this_entry->inode != 0) {
+            last_entry->rec_len += this_entry->rec_len;
+            return DELETE_SUCCESS;
+        }
+        size += this_entry->rec_len;
+    }
+    return ERR_NOT_EXIST;
 }
