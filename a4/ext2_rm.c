@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
         bd->bg_free_blocks_count++;
         sb->s_free_blocks_count++;
     }
-    printf("fucker %d\n", delete_file->i_block[12]);
+
     if (!is_over && delete_file->i_block[12] != 0) {
         unsigned int *indirect_block = (unsigned int*)(disk + EXT2_BLOCK_SIZE * delete_file->i_block[12]);
         for (int i = 0; i < 256 && !is_over; i++) {
