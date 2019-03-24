@@ -52,8 +52,12 @@ int main(int argc, char** argv) {
 
     int find_result = find_in_inode(target_directory, path[length-1], 'f');
     if (find_result == ERR_WRONG_TYPE) {
-        fprintf(stderr, "%s is a directory\n", argv[2]);
-        return -ENOENT;
+        // Search again to see if this is a symbolic link;
+        find_result = find_in_inode(target_directory, path[length-1], 'l');
+        if (find_result == ERR_WRONG_TYPE) {
+            fprintf(stderr, "%s is a directory\n", argv[2]);
+            return -ENOENT;
+        }
     } else if (find_result == ERR_NOT_EXIST) {
         fprintf(stderr, "File not Exists\n");
         return -ENOENT;
