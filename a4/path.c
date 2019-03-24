@@ -7,6 +7,13 @@
 #include "ext2.h"
 
 /**
+ * Try restore the inode. Return RESTORE_SUCCESS on success;
+ * RETURN ERR_OVERWRITTEN if the inode or the datablock in the inode
+ * has been allocated.
+ */ 
+static int restore_inode(int index);
+
+/**
  * Find the last non-zero entry in the i_block.
  */
 static int find_last_nonzero(unsigned int *i_block) {
@@ -409,4 +416,137 @@ int delete_entry_in_block(int block, char *name) {
         size += this_entry->rec_len;
     }
     return ERR_NOT_EXIST;
+}
+/**
+ * Return the size after padding to be a multiple of 4
+ */ 
+static int padding_size(int actual_length) {
+    if (actual_length % 4 == 0) {
+        return actual_length;
+    } else {
+        return actual_length + (4 - actual_length % 4);
+    }
+}
+
+// TODO: ask whether need to consider the case there are multiple deleted
+// files with the same name and some of them can't be restored
+int restore_entry_in_block(int block, char* name) {
+    // TODO: Corner case: there are both deleted directory and regular file with 
+    // the given name
+    unsigned char *this_block = disk + EXT2_BLOCK_SIZE * block;
+    struct ext2_dir_entry *this_entry = (struct ext2_dir_entry*)this_block;
+    // Search for the first block
+    char this_name[EXT2_NAME_LEN];
+    strncpy(this_name, this_entry->name, this_entry->name_len);
+    this_name[this_entry->name_len] = '\0';
+    if (strcmp(this_name, name) == 0) {
+        if ((this_entry->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+            return ERR_WRONG_TYPE;
+        } else {
+            int result = restore_inode(this_entry->inode);
+            return result;
+        }
+    }
+    int total_size = 0;
+    int this_size = padding_size(8+this_entry->name_len);
+    while (total_size < EXT2_BLOCK_SIZE) {
+        if (this_size == this_entry->rec_len) {
+            total_size += this_size;
+        } else { //Search in the gaps
+            int size = this_size;
+            unsigned char *temp = (unsigned char*)this_entry;
+            while (size < this_entry->rec_len) {
+                unsigned char *temp_pointer = temp + size;
+                struct ext2_dir_entry* temp_entry = (struct ext2_dir_entry*)temp_pointer;
+                if (temp_entry->name_len == 0) {
+                    break;
+                }
+                strncpy(this_name, temp_entry->name, temp_entry->name_len);
+                this_name[temp_entry->name_len] = '\0';
+                if ((temp_entry->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+                    return ERR_WRONG_TYPE;
+                }
+                if (strcmp(this_name, name) == 0) {
+                    temp_entry->rec_len = this_entry->rec_len - size;
+                    this_entry->rec_len = size;
+                    return restore_inode(temp_entry->inode);
+                }
+                size += padding_size(8+temp_entry->name_len);
+            }
+            total_size += this_entry->rec_len;
+        }
+        this_entry = (struct ext2_dir_entry*)(this_block+total_size);
+        this_size = padding_size(8+this_entry->name_len);
+    }
+    return ERR_NOT_EXIST;
+}
+
+/**
+ * Try restore the inode. Return RESTORE_SUCCESS on success;
+ * RETURN ERR_OVERWRITTEN if the inode or the datablock in the inode
+ * has been allocated.
+ */ 
+static int restore_inode(int index) {
+    struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
+    struct ext2_super_block *sb = (struct ext2_super_block*)(disk + EXT2_BLOCK_SIZE);
+    char *block_bitmap = (char*)(disk+ EXT2_BLOCK_SIZE * bd->bg_block_bitmap);
+    char *inode_bitmap = (char*)(disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap);
+    struct ext2_inode *inodes = (struct ext2_inode*)(disk + EXT2_BLOCK_SIZE*bd->bg_inode_table);
+    int block_count = 0;
+    
+    if (!(*(inode_bitmap + ((index - 1) / 8)) & (1 << ((index - 1) % 8)))) {
+        *(inode_bitmap + ((index - 1) / 8)) |= (1 << ((index - 1) % 8));
+    } else {
+        return ERR_OVERWRITTEN;
+    }
+
+    struct ext2_inode* this_inode = inodes + (index - 1);
+    int is_over = 0;
+    for (int i = 0; i < 12 && !is_over; i++) {
+        if (this_inode->i_block[i] == 0) {
+            is_over = 1;
+            break;
+        }
+        int this_block = this_inode->i_block[i];
+        if (!(*(block_bitmap + this_block / 8) & (1 << (this_block % 8)))) {
+            *(block_bitmap + this_block / 8) |= (1 << (this_block % 8));
+            block_count++;
+        } else {
+            return ERR_OVERWRITTEN;
+        }
+    }
+    if (is_over) {
+        bd->bg_free_blocks_count += block_count;
+        sb->s_free_blocks_count += block_count;
+        bd->bg_free_inodes_count++;
+        sb->s_free_inodes_count++;
+        return RESTORE_SUCCESS; 
+    }
+    if (this_inode->i_block[12] != 0) {
+        int temp = this_inode->i_block[12];
+        if (!(*(block_bitmap + temp / 8) & (1 << (temp % 8)))) {
+            *(block_bitmap + temp / 8) |= (1 << (temp % 8));
+        } else {
+            return ERR_OVERWRITTEN;
+        }
+        unsigned int *indirect_block = (unsigned int*)(disk+EXT2_BLOCK_SIZE*this_inode->i_block[12]);
+        for (int i = 0; i < 256 && !is_over; i++) {
+            if (indirect_block[i] == 0) {
+                is_over = 1;
+                break;
+            }
+            int this_block = indirect_block[i];
+            if (!(*(block_bitmap + this_block / 8) & (1 << (this_block % 8)))) {
+                *(block_bitmap + this_block / 8) |= (1 << (this_block % 8));
+                block_count++;
+            } else {
+                return ERR_OVERWRITTEN;
+            }
+        }
+    }
+    bd->bg_free_blocks_count -= block_count;
+    sb->s_free_blocks_count -= block_count;
+    bd->bg_free_inodes_count--;
+    sb->s_free_inodes_count--;
+    return RESTORE_SUCCESS; 
 }

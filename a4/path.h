@@ -4,17 +4,10 @@
 #define ERR_NO_BLOCK -1
 #define ERR_WRONG_TYPE -3
 #define DELETE_SUCCESS 0
+#define RESTORE_SUCCESS 0
+#define ERR_OVERWRITTEN -4
 
 extern unsigned char *disk;
-
-/**
- * try find the directory with name in the given block.
- * Return ERR_NOT_EXIST if the name doesn't exist,
- * return ERR_NAME_EXIST if the name exist but is not
- * a directory.
- */ 
-// int find_directory(int block, char* name);
-// int find_file(int block, char* name);
 
 /**
  * try find the directory entry with name and given type in the given block.
@@ -23,7 +16,6 @@ extern unsigned char *disk;
  * Return ERR_WRONG_TYPE if the name exist but no as given type
  */ 
 int find_in_block(int block, char* name, char type);
-
 
 /**
  * parse the path provided and return an array of all the folder tokens in 
@@ -45,14 +37,6 @@ char** parse_path(char *path, int *length);
  * inode in the array.
  */ 
 int trace_path(char** path, int length);
-
-/**
- * Try find the directory with given name and type in the given inode.
- * Return ERR_NOT_EXIST if the name doesn't exist, 
- * return ERR_NAME_EXIST if the name already exist.
- */ 
-// int find_directory_inode(int inode, char* name); 
-// int find_file_inode(int inode, char* name);
 
 /**
  * Try find the directory with given name and type in the given inode.
@@ -90,3 +74,12 @@ struct ext2_dir_entry* create_directory(int inode, char *name);
  * Return DELETE_SUCCESS on success, return ERR_NOT_EXIST on not found
  */ 
 int delete_entry_in_block(int block, char *name);
+
+/**
+ * Try restore the file with name in the given block;
+ * Return RESTORE_SUCCESS on success, return ERR_NOT_EXIST on not found
+ * Return ERR_WRONG_TYPE if the entry try to restore is a directory
+ * Return ERR_OVERWRITTEN if the entry inode or the datablock in the inode
+ * has been reallocated
+ */
+int restore_entry_in_block(int block, char *name);

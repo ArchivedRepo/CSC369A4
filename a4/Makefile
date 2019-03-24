@@ -1,4 +1,4 @@
-all: test ext2_mkdir ext2_cp ext2_ln ext2_rm
+all: test ext2_mkdir ext2_cp ext2_ln ext2_rm ext2_restore
 
 test: path.c path.h ext2.h test.c
 	gcc -Wall -g -o test test.c path.c
@@ -15,5 +15,8 @@ ext2_ln: path.c path.h ext2.h ext2_ln.c
 ext2_rm: path.c path.h ext2.h ext2_rm.c
 	gcc -Wall -g -o ext2_rm path.c ext2_rm.c
 
+ext2_restore: path.c path.h ext2.h ext2_restore.c
+	gcc -Wall -g -o ext2_restore path.c ext2_restore.c
+
 clean:
-	rm -rf test ext2_mkdir ext2_cp ext2_ln ext2_rm *.dSYM
+	rm -rf test ext2_mkdir ext2_cp ext2_ln ext2_rm ext2_restore *.dSYM
