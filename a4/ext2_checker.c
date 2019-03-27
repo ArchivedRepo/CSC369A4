@@ -113,6 +113,7 @@ int main(int argc, char** argv) {
 
 
 void check_directory(int index) {
+    printf("%d\n", index);
     struct ext2_inode inode = inodes[index];
     for (int i = 0; i < 12; i++) {
         if (inode.i_block[i] == 0) {
@@ -148,21 +149,21 @@ void check_block(int block) {
         int type_fixed = 0;
         struct ext2_inode this_inode = inodes[this_dir->inode - 1];
         if ((this_inode.i_mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
+            type = 'l';
             if ((this_dir->file_type & EXT2_FT_SYMLINK) != EXT2_FT_SYMLINK) {
                 this_dir->file_type = EXT2_FT_SYMLINK;
-                type = 'l';
                 type_fixed = 1;
             }
         } else if ((this_inode.i_mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
+            type = 'f';
             if ((this_dir->file_type & EXT2_FT_REG_FILE) != EXT2_FT_REG_FILE) {
                 this_dir->file_type = EXT2_FT_REG_FILE;
-                type = 'f';
                 type_fixed = 1;
             }
         } else if ((this_inode.i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
+            type = 'd';
             if ((this_dir->file_type & EXT2_FT_DIR) != EXT2_FT_DIR) {
                 this_dir->file_type = EXT2_FT_DIR;
-                type = 'd';
                 type_fixed = 1;
             }
         }
@@ -172,7 +173,6 @@ void check_block(int block) {
             printf("Fixed: Entry type vs inode mismatch: inode [%d]\n", this_dir->inode);
         }
 
-        
         if(type != 0){
             // check inode bitmap, not increase counter here
             int byte = (this_dir->inode - 1)/8; 
@@ -192,10 +192,10 @@ void check_block(int block) {
                 printf("Fixed: valid inode marked for deletion: [%d]\n", this_dir->inode);
             }
 
-            // check subdirectory
-            if(type == 'd'){
-                check_directory(this_dir->inode - 1);
-            }
+            // // check subdirectory
+            // if(type == 'd'){
+            //     check_directory(this_dir->inode - 1);
+            // }
         }
         
         size += this_dir->rec_len;
