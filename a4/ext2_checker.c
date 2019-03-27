@@ -192,10 +192,10 @@ void check_block(int block) {
                 printf("Fixed: valid inode marked for deletion: [%d]\n", this_dir->inode);
             }
 
-            // // check subdirectory
-            // if(type == 'd'){
-            //     check_directory(this_dir->inode - 1);
-            // }
+            // check subdirectory
+            if(type == 'd' && this_dir->name[0]!='.' && this_dir->inode != 11){
+                check_directory(this_dir->inode - 1);
+            }
         }
         
         size += this_dir->rec_len;
