@@ -32,6 +32,13 @@ int main(int argc, char** argv) {
     // get source file size
     struct stat st;
     stat(argv[2], &st);
+
+    // check if the file to copy is regular file
+    if((st.st_mode & S_IFMT) != S_IFREG){
+        fprintf(stderr, "Not regular file.\n");
+        return -ENOENT;
+    }
+    // check the size of the file to copy
     if(st.st_size > 12*1024 + 256*1024){
         fprintf(stderr, "File too large.\n");
         exit(-ENOSPC);
@@ -95,21 +102,12 @@ int main(int argc, char** argv) {
     new_entry->inode = new_inode + 1;
     new_entry->file_type = EXT2_FT_REG_FILE;
     
-    // Increase target_dir link count
-    struct ext2_inode *parent = &inodes[target_directory-1];
-    parent->i_links_count ++;
-
 
     // setting inode fields for new file
     struct ext2_inode *this_inode = inodes + new_inode;
     this_inode->i_mode = EXT2_S_IFREG;
-    this_inode->i_uid = 0;
-    this_inode->i_gid = 0;
-    // this_inode->i_ctime = ;
-    // this_inode->i_dtime = ;
+    this_inode->i_dtime = 0;
     this_inode->i_links_count = 1;
-    this_inode->osd1 = 0;
-    this_inode->i_generation = 0;
     this_inode->i_size = st.st_size; 
     this_inode->i_blocks = 0;   
     memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
