@@ -233,7 +233,7 @@ int allocate_block() {
             *(block_bitmap + i/8) |= 1 << (i % 8);
             sb->s_free_blocks_count--;
             bd->bg_free_blocks_count--;
-            return i;
+            return i+1;
         }
     }
     return ERR_NO_BLOCK;

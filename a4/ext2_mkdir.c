@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
     this_inode->i_block[0] = new_block;
     unsigned char *this_block = disk + EXT2_BLOCK_SIZE * new_block;
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry*)this_block;
-    cur_entry[0].inode = new_inode;
+    cur_entry[0].inode = new_inode + 1;
     cur_entry[0].name_len = 1;
     cur_entry[0].file_type = EXT2_FT_DIR;
     cur_entry[0].name[0] = '.';

@@ -107,6 +107,7 @@ int main(int argc, char** argv) {
 
     struct ext2_dir_entry *new_entry = create_directory(target_directory, path[length-1]);
     
+    // if target is hard link
     if(mode == 0){
         new_entry->inode = source_inode;
         new_entry->file_type = EXT2_FT_REG_FILE;
@@ -115,6 +116,7 @@ int main(int argc, char** argv) {
         struct ext2_inode *this_inode = inodes + source_inode - 1; //-1 for the index in bitmap
         this_inode->i_links_count ++;
 
+    // if target is soft link
     }else{
         int new_inode = allocate_inode();
         if (new_inode == -1) {
@@ -125,11 +127,11 @@ int main(int argc, char** argv) {
         new_entry->file_type = EXT2_FT_SYMLINK;
 
         // setting inode fields
-        struct ext2_inode *this_inode = inodes + new_inode;
+        struct ext2_inode *this_inode = (struct ext2_inode *)(inodes + new_inode);
         this_inode->i_mode = EXT2_S_IFLNK;
         this_inode->i_dtime = 0;
         this_inode->i_links_count = 1;
-        this_inode->i_size = strlen(argv[4]); 
+        this_inode->i_size = strlen(argv[3]); 
         this_inode->i_blocks = 0;   
         memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
 
@@ -143,7 +145,7 @@ int main(int argc, char** argv) {
         this_inode->i_blocks += 2;
 
         // copying path into data block
-        char *this_block = (char*)disk + EXT2_BLOCK_SIZE * new_block;
+        char *this_block = (char*)(disk + EXT2_BLOCK_SIZE * new_block);
         strncpy(this_block, argv[3], strlen(argv[3]));
         
     }
