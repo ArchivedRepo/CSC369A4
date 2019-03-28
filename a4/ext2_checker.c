@@ -147,22 +147,22 @@ void check_block(int block) {
         // check type
         char type = 0;
         int type_fixed = 0;
-        struct ext2_inode this_inode = inodes[this_dir->inode - 1];
-        if ((this_inode.i_mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
+        struct ext2_inode *this_inode = &inodes[this_dir->inode - 1];
+        if ((this_inode->i_mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
             type = 'l';
             if ((this_dir->file_type & EXT2_FT_SYMLINK) != EXT2_FT_SYMLINK) {
                 this_dir->file_type = EXT2_FT_SYMLINK;
                 type_fixed = 1;
             }
-        } else if ((this_inode.i_mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
+        } else if ((this_inode->i_mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
             type = 'f';
-            if ((this_dir->file_type & EXT2_FT_REG_FILE) != EXT2_FT_REG_FILE) {
+            if ((this_dir->file_type & EXT2_FT_SYMLINK) != EXT2_FT_REG_FILE) {
                 this_dir->file_type = EXT2_FT_REG_FILE;
                 type_fixed = 1;
             }
-        } else if ((this_inode.i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
+        } else if ((this_inode->i_mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
             type = 'd';
-            if ((this_dir->file_type & EXT2_FT_DIR) != EXT2_FT_DIR) {
+            if ((this_dir->file_type & EXT2_FT_SYMLINK) != EXT2_FT_DIR) {
                 this_dir->file_type = EXT2_FT_DIR;
                 type_fixed = 1;
             }
@@ -186,14 +186,14 @@ void check_block(int block) {
 
 
             // check deletion time
-            if(this_inode.i_dtime != 0){
-                this_inode.i_dtime = 0;
+            if(this_inode->i_dtime != 0){
+                this_inode->i_dtime = 0;
                 counter++;
                 printf("Fixed: valid inode marked for deletion: [%d]\n", this_dir->inode);
             }
 
             // check subdirectory
-            if(type == 'd' && this_dir->name[0]!='.' && this_dir->inode != 11){
+            if(type == 'd' && this_dir->name[0]!='.' && this_dir->inode != 11){ // TODO: instead of checking 11, check whether name is lost and found
                 check_directory(this_dir->inode - 1);
             }
         }

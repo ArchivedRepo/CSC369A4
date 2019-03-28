@@ -69,13 +69,11 @@ int main(int argc, char** argv) {
     new_entry->file_type = EXT2_FT_DIR;
 
     struct ext2_inode *this_inode = inodes + new_inode;
-    this_inode->i_uid = 0;
-    this_inode->i_gid = 0;
     this_inode->i_mode = EXT2_S_IFDIR;
     this_inode->i_size = 1024;
     this_inode->i_links_count = 2;
     this_inode->i_blocks = 2;
-    this_inode->i_generation = 0;
+    this_inode->i_dtime = 0;
     memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
     int new_block = allocate_block();
     if (new_block == ERR_NO_BLOCK) {
