@@ -256,15 +256,13 @@ static struct ext2_dir_entry* find_space_in_block(unsigned char *block, char *na
     if (actual_length % 4 != 0) {
         actual_length += 4 - actual_length % 4;
     }
-    printf("%d\n", actual_length);
-    printf("%d\n", cur_entry->rec_len);
+    
     size -= cur_entry->rec_len;
     int length_left = cur_entry ->rec_len - actual_length;
     if (length_left > length_needed) {
         cur_entry->rec_len = actual_length;
         cur_entry = (struct ext2_dir_entry*)(block + size + actual_length);
         size += actual_length;
-        printf("%d\n", size);
         cur_entry->rec_len = EXT2_BLOCK_SIZE - size;
         cur_entry->name_len = strlen(name);
         for (int i = 0; i < strlen(name); i++) {

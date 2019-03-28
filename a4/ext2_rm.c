@@ -97,7 +97,6 @@ int main(int argc, char** argv) {
     // and super block;
     
     struct ext2_inode *delete_file = inodes + (find_result - 1);
-    printf("%d\n", find_result);
     unsigned char *inode_bitmap = disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap;
     unsigned char *block_bitmap = disk + EXT2_BLOCK_SIZE * bd->bg_block_bitmap;
     time_t delete_time;
@@ -113,7 +112,6 @@ int main(int argc, char** argv) {
             break;
         }
         int this_block = delete_file->i_block[i];
-        printf("%d\n", this_block);
         *(block_bitmap + this_block / 8) &= ~(1 << (this_block % 8));
         bd->bg_free_blocks_count++;
         sb->s_free_blocks_count++;
@@ -127,7 +125,6 @@ int main(int argc, char** argv) {
                 break;
             }
             int this_block = indirect_block[i];
-            printf("%d\n", this_block);
             *(block_bitmap + this_block / 8) &= ~(1 << (this_block % 8));
             bd->bg_free_blocks_count++;
             sb->s_free_blocks_count++;
