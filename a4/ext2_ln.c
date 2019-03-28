@@ -17,7 +17,7 @@ unsigned char *disk;
 int main(int argc, char** argv) {
 
     int opt;
-    char mode = 1;
+    char mode = 0;
 
     if ((opt = getopt(argc, argv, "s")) != -1){
         mode = 1;

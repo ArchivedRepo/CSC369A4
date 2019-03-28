@@ -113,7 +113,6 @@ int main(int argc, char** argv) {
 
 
 void check_directory(int index) {
-    printf("%d\n", index);
     struct ext2_inode inode = inodes[index];
     for (int i = 0; i < 12; i++) {
         if (inode.i_block[i] == 0) {
