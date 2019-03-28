@@ -506,24 +506,27 @@ static int restore_inode(int index) {
             break;
         }
         int this_block = this_inode->i_block[i];
-        if (!(*(block_bitmap + this_block / 8) & (1 << (this_block % 8)))) {
-            *(block_bitmap + this_block / 8) |= (1 << (this_block % 8));
+        if (!(*(block_bitmap + (this_block-1) / 8) & (1 << ((this_block - 1) % 8)))) {
+            *(block_bitmap + (this_block - 1) / 8) |= (1 << ((this_block - 1) % 8));
             block_count++;
         } else {
             return ERR_OVERWRITTEN;
         }
     }
     if (is_over) {
-        bd->bg_free_blocks_count += block_count;
-        sb->s_free_blocks_count += block_count;
-        bd->bg_free_inodes_count++;
-        sb->s_free_inodes_count++;
+        bd->bg_free_blocks_count -= block_count;
+        sb->s_free_blocks_count -= block_count;
+        bd->bg_free_inodes_count--;
+        sb->s_free_inodes_count--;
+        this_inode->i_dtime = 0;
+        this_inode->i_links_count++;
         return RESTORE_SUCCESS; 
     }
     if (this_inode->i_block[12] != 0) {
         int temp = this_inode->i_block[12];
-        if (!(*(block_bitmap + temp / 8) & (1 << (temp % 8)))) {
-            *(block_bitmap + temp / 8) |= (1 << (temp % 8));
+        if (!(*(block_bitmap + (temp - 1) / 8) & (1 << ((temp - 1) % 8)))) {
+            *(block_bitmap + (temp - 1) / 8) |= (1 << ((temp - 1) % 8));
+            block_count++;
         } else {
             return ERR_OVERWRITTEN;
         }
@@ -534,8 +537,8 @@ static int restore_inode(int index) {
                 break;
             }
             int this_block = indirect_block[i];
-            if (!(*(block_bitmap + this_block / 8) & (1 << (this_block % 8)))) {
-                *(block_bitmap + this_block / 8) |= (1 << (this_block % 8));
+            if (!(*(block_bitmap + (this_block - 1) / 8) & (1 << ((this_block - 1) % 8)))) {
+                *(block_bitmap + (this_block - 1) / 8) |= (1 << ((this_block - 1) % 8));
                 block_count++;
             } else {
                 return ERR_OVERWRITTEN;
@@ -546,5 +549,7 @@ static int restore_inode(int index) {
     sb->s_free_blocks_count -= block_count;
     bd->bg_free_inodes_count--;
     sb->s_free_inodes_count--;
+    this_inode->i_dtime = 0;
+    this_inode->i_links_count++;
     return RESTORE_SUCCESS; 
 }
