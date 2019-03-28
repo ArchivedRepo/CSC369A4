@@ -62,7 +62,6 @@ int main(int argc, char** argv) {
     }
 
 
-    // TODO: align with path.c
     // find the inode for source file
     int source_inode = find_in_inode(source_directory, path_s[len_s-1], 'f'); 
     if (source_inode == ERR_NOT_EXIST) {
@@ -128,13 +127,8 @@ int main(int argc, char** argv) {
         // setting inode fields
         struct ext2_inode *this_inode = inodes + new_inode;
         this_inode->i_mode = EXT2_S_IFLNK;
-        this_inode->i_uid = 0;
-        this_inode->i_gid = 0;
-        // this_inode->i_ctime = ;
-        // this_inode->i_dtime = ;
+        this_inode->i_dtime = 0;
         this_inode->i_links_count = 1;
-        this_inode->osd1 = 0;
-        this_inode->i_generation = 0;
         this_inode->i_size = strlen(argv[4]); 
         this_inode->i_blocks = 0;   
         memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
@@ -150,8 +144,8 @@ int main(int argc, char** argv) {
 
         // copying path into data block
         char *this_block = (char*)disk + EXT2_BLOCK_SIZE * new_block;
-        strncpy(this_block, argv[3], strlen(argv[3]) + 1); // TODO: null terminate?
-       
+        strncpy(this_block, argv[3], strlen(argv[3]));
+        
     }
     
     
