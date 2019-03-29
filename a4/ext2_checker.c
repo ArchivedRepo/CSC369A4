@@ -180,6 +180,7 @@ void check_block(int block) {
                 *(inode_bitmap + byte) |= 1 << bit;
                 sb->s_free_inodes_count--;
                 bd->bg_free_inodes_count--;
+                counter++;
                 printf("Fixed: inode [%d] not marked as in-use\n", this_dir->inode);
             }
 
