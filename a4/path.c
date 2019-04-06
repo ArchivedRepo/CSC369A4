@@ -112,6 +112,11 @@ char** parse_path(char *path, int *length) {
             this_count++;
         }
     }
+    for (int i = 0; i < count; i++) {
+        if (strlen(result[i]) > 255) {
+            return NULL;
+        }
+    }
     
     return result;
     
