@@ -181,10 +181,12 @@ int find_in_block(int block, char* name, char type) {
         strncpy(this_name, this_dir->name, EXT2_NAME_LEN);
         this_name[this_dir->name_len] = '\0';
         if (strcmp(this_name, name) == 0) {
-            if (this_type == type) {
-                return this_dir->inode;
-            } else {
-                return ERR_WRONG_TYPE;
+            if (this_dir->inode != 0) {
+                if (this_type == type) {
+                    return this_dir->inode;
+                } else {
+                    return ERR_WRONG_TYPE;
+                }
             }
         }
         this_dir = (struct ext2_dir_entry*)(this_block + size);
@@ -443,11 +445,15 @@ int restore_entry_in_block(int block, char* name) {
     strncpy(this_name, this_entry->name, this_entry->name_len);
     this_name[this_entry->name_len] = '\0';
     if (strcmp(this_name, name) == 0) {
-        if (this_entry->file_type == EXT2_FT_DIR) {
-            return ERR_WRONG_TYPE;
+        if (this_entry->inode != 0) {
+            if (this_entry->file_type == EXT2_FT_DIR) {
+                return ERR_WRONG_TYPE;
+            } else {
+                int result = restore_inode(this_entry->inode);
+                return result;
+            }
         } else {
-            int result = restore_inode(this_entry->inode);
-            return result;
+            return ERR_OVERWRITTEN;
         }
     }
     int total_size = 0;
@@ -470,9 +476,14 @@ int restore_entry_in_block(int block, char* name) {
                     return ERR_WRONG_TYPE;
                 }
                 if (strcmp(this_name, name) == 0) {
-                    temp_entry->rec_len = this_entry->rec_len - size;
-                    this_entry->rec_len = size;
-                    return restore_inode(temp_entry->inode);
+                    int restore_inode_result = restore_inode(temp_entry->inode);
+                    if (restore_inode_result == ERR_OVERWRITTEN) {
+                        return ERR_OVERWRITTEN;
+                    } else {
+                        temp_entry->rec_len = this_entry->rec_len - size;
+                        this_entry->rec_len = size;
+                        return restore_inode_result;
+                    }
                 }
                 size += padding_size(8+temp_entry->name_len);
             }
