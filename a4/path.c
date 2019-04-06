@@ -43,7 +43,7 @@ static int find_last_nonzero_1024(unsigned int* arr) {
 
 char** parse_path(char *path, int *length) {
     if (path[0] == '\0' || path[0] != '/') {
-        fprintf(stderr, "Wrong format");
+        fprintf(stderr, "Wrong format\n");
         return NULL;
     }
     //count the number of token in the first pass
