@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
             return -ENOENT;
         }
     }
+    // find in the single indirection block
     if (directory_inode->i_block[12] != 0) {
         unsigned int *indirect_block = (unsigned int*)
             (disk+EXT2_BLOCK_SIZE*directory_inode->i_block[12]);

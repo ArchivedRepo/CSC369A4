@@ -194,7 +194,6 @@ int find_in_block(int block, char* name, char type) {
     return ERR_NOT_EXIST;
 }
 
-//TODO: This function needs to be able to handle single indirection
 int find_in_inode(int inode, char* name, char type) {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
     struct ext2_inode *inodes = 
@@ -433,11 +432,7 @@ static int padding_size(int actual_length) {
     }
 }
 
-// TODO: ask whether need to consider the case there are multiple deleted
-// files with the same name and some of them can't be restored
 int restore_entry_in_block(int block, char* name) {
-    // TODO: Corner case: there are both deleted directory and regular file with 
-    // the given name
     unsigned char *this_block = disk + EXT2_BLOCK_SIZE * block;
     struct ext2_dir_entry *this_entry = (struct ext2_dir_entry*)this_block;
     // Search for the first block
