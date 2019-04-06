@@ -168,11 +168,11 @@ int find_in_block(int block, char* name, char type) {
     while (size != EXT2_BLOCK_SIZE) {
         size += this_dir->rec_len;
         char this_type = 0;
-        if ((this_dir->file_type & EXT2_FT_SYMLINK) == EXT2_FT_SYMLINK) {
+        if (this_dir->file_type == EXT2_FT_SYMLINK) {
             this_type = 'l';
-        } else if ((this_dir->file_type & EXT2_FT_REG_FILE) == EXT2_FT_REG_FILE) {
+        } else if (this_dir->file_type == EXT2_FT_REG_FILE) {
             this_type = 'f';
-        } else if ((this_dir->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+        } else if (this_dir->file_type == EXT2_FT_DIR) {
             this_type = 'd';
         } else {
             fprintf(stderr, "Unexpected type!\n");
@@ -443,7 +443,7 @@ int restore_entry_in_block(int block, char* name) {
     strncpy(this_name, this_entry->name, this_entry->name_len);
     this_name[this_entry->name_len] = '\0';
     if (strcmp(this_name, name) == 0) {
-        if ((this_entry->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+        if (this_entry->file_type == EXT2_FT_DIR) {
             return ERR_WRONG_TYPE;
         } else {
             int result = restore_inode(this_entry->inode);
@@ -466,7 +466,7 @@ int restore_entry_in_block(int block, char* name) {
                 }
                 strncpy(this_name, temp_entry->name, temp_entry->name_len);
                 this_name[temp_entry->name_len] = '\0';
-                if ((temp_entry->file_type & EXT2_FT_DIR) == EXT2_FT_DIR) {
+                if (temp_entry->file_type  == EXT2_FT_DIR) {
                     return ERR_WRONG_TYPE;
                 }
                 if (strcmp(this_name, name) == 0) {
