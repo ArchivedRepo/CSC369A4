@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     }
     int target_directory = trace_path(path, length - 1);
     if (target_directory == -ENOENT) {
-        fprintf(stderr, "This path doesn't exist");
+        fprintf(stderr, "This path doesn't exist\n");
         return -ENOENT;
     }
 
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
 
     int new_inode = allocate_inode();
     if (new_inode == ERR_NO_INODE) {
-        fprintf(stderr, "There is no inode available");
+        fprintf(stderr, "There is no inode available\n");
         return -ENOSPC;
     }
     new_entry->inode = new_inode + 1;

@@ -306,7 +306,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         last_nonzero++;
         int new_block = allocate_block();
         if (new_block == -1) {
-            fprintf(stderr, "There is no space left on disk");
+            fprintf(stderr, "There is no space left on disk\n");
             exit(-ENOSPC);
         }
         (this_inode->i_block)[last_nonzero] = new_block;
@@ -331,7 +331,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         //Need a new block with single indirecton
         int new_indirect_block = allocate_block();
         if (new_indirect_block == -1) {
-            fprintf(stderr, "There is no space on the disk!");
+            fprintf(stderr, "There is no space on the disk!\n");
             exit(-ENOSPC);
         }
         //Clear the new block
@@ -341,7 +341,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         (unsigned int *)(disk + EXT2_BLOCK_SIZE * new_indirect_block);
         int new_block = allocate_block();
         if (new_block == -1) {
-            fprintf(stderr, "There is no space on the disk");
+            fprintf(stderr, "There is no space on the disk\n");
             exit(-ENOSPC);
         }
         indirect_blocks[0] = new_block;
@@ -365,7 +365,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         if (result != NULL) {
             return result;
         } else if (result == NULL && last_nonzero == 1023) {
-            fprintf(stderr, "Unable to handle the case that need double indirect");
+            fprintf(stderr, "Unable to handle the case that need double indirect\n");
             exit(-ENOSPC);
         }
         last_nonzero++;
