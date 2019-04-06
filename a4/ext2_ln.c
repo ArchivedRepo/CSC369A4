@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
     int opt;
     char mode = 0;
 
+    // check if to create soft link or not
     if ((opt = getopt(argc, argv, "s")) != -1){
         mode = 1;
     }
@@ -57,7 +58,7 @@ int main(int argc, char** argv) {
     }
     int source_directory = trace_path(path_s, len_s - 1);
     if (source_directory == -ENOENT) {
-        fprintf(stderr, "Source path doesn't exist\n");
+        fprintf(stderr, "The path to source file is invalid. \n");
         return -ENOENT;
     }
 
@@ -88,7 +89,7 @@ int main(int argc, char** argv) {
     }
     int target_directory = trace_path(path, length - 1);
     if (target_directory == -ENOENT) {
-        fprintf(stderr, "This path doesn't exist\n");
+        fprintf(stderr, "The path to destination is invalid. \n");
         return -ENOENT;
     }
 

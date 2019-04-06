@@ -22,11 +22,27 @@ unsigned char *inode_bitmap;
 // counter for fixes
 int counter = 0;
 
+// Count used blocks according to bitmap
 int count_block();
+
+// Count used inodes according to bitmap
 int count_inode();
-void check_data_block(int index);
-void check_block(int block);
+
+/* loop over the block used by a directory corresponding to an inode
+ * index: index of inode (inode number - 1) 
+ */
 void check_directory(int index);
+
+/* loop over the files in a block and check imode, inode bitmap and i_dtime
+ * block: index of block
+ */
+void check_block(int block);
+
+
+/* Helper function to check consistency of block bitmap
+ * index : inode index in bitmap
+ */
+void check_data_block(int index);
 
 
 
@@ -36,6 +52,8 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Usage: ext2_checker <image file name>");
         exit(1);
     }
+
+    // open image file
     int fd = open(argv[1], O_RDWR);
 	if(fd == -1) {
 		perror("open");
@@ -56,7 +74,7 @@ int main(int argc, char** argv) {
 
 
 
-    // check free counts
+    // check free blocks and inodes count
     int free_blocks_count = sb->s_blocks_count - count_block();
     int free_inodes_count = sb->s_inodes_count - count_inode();
     if(free_blocks_count != sb->s_free_blocks_count){
@@ -88,8 +106,8 @@ int main(int argc, char** argv) {
     }
 
     
+    // check i_mode, i_node bitmap and i_dtime
     check_directory(EXT2_ROOT_INO - 1);
-
 
 
     // check consistency of block bitmap
@@ -102,6 +120,7 @@ int main(int argc, char** argv) {
         }
     }
     
+    // Summary of fixed
     if(counter == 0){
         printf("No file system inconsistencies detected!\n");
     }else{
@@ -112,6 +131,7 @@ int main(int argc, char** argv) {
 }
 
 
+// loop over the blocks used by a directory
 void check_directory(int index) {
     struct ext2_inode inode = inodes[index];
     for (int i = 0; i < 12; i++) {
@@ -134,7 +154,9 @@ void check_directory(int index) {
     }
 }
 
-/* block: block number*/
+// loop over the files in the block to check and check the consistency of
+// imode, inode bitmap and i_dtime
+
 void check_block(int block) {
     
     int size = 0; //record total rec_len of blocks accessed
@@ -143,7 +165,7 @@ void check_block(int block) {
 
     while (size != EXT2_BLOCK_SIZE) {
 
-        // check type
+        // check consistency of file type
         char type = 0;
         int type_fixed = 0;
         struct ext2_inode *this_inode = &inodes[this_dir->inode - 1];
@@ -167,13 +189,17 @@ void check_block(int block) {
             }
         }
 
+        // update total fixes counter for file type fix
         if(type_fixed == 1){
             counter++;
             printf("Fixed: Entry type vs inode mismatch: inode [%d]\n", this_dir->inode);
         }
 
+
+        // if is regular file, directory or symlink
         if(type != 0){
-            // check inode bitmap, not increase counter here
+           
+            // check whether inode is marked as in user in inode bitmap
             int byte = (this_dir->inode - 1)/8; 
             int bit = (this_dir->inode - 1) % 8;
             if( (inode_bitmap[byte] & (1 << bit)) == 0){
@@ -193,11 +219,13 @@ void check_block(int block) {
             }
 
             // check subdirectory
-            if(type == 'd' && this_dir->name[0]!='.' && this_dir->inode != 11){ // TODO: instead of checking 11, check whether name is lost and found
+            // avoid checking current and parent dir and lost-and-found to avoid infinite loop and seg fault
+            if(type == 'd' && this_dir->name[0]!='.' && this_dir->inode != 11){ 
                 check_directory(this_dir->inode - 1);
             }
         }
         
+        // go to the next file in this directory
         size += this_dir->rec_len;
         dir += this_dir->rec_len;
         this_dir = (struct ext2_dir_entry*)dir;
@@ -206,8 +234,7 @@ void check_block(int block) {
 }
 
 
-/* index : inode index in bitmap
-*/
+// check the consistency of block bitmap
 void check_data_block(int index) {
     char type = 0;
     struct ext2_inode this_inode = inodes[index];
@@ -224,6 +251,7 @@ void check_data_block(int index) {
     if(type != 0){
         int fixed = 0;
 
+        // check whether the corresponding bit is set to one in bitmap for block in use 
         for (int k = 0; k < 12; k++) {
             if (this_inode.i_block[k] == 0) {
                 break;
@@ -238,7 +266,7 @@ void check_data_block(int index) {
             }
         }
 
-        // Single indirect block
+        // check for single indirect block
         if (this_inode.i_block[12] != 0) {
             unsigned int *single_indirect_block = 
             (unsigned int *)(disk + this_inode.i_block[12] * EXT2_BLOCK_SIZE);
@@ -257,6 +285,7 @@ void check_data_block(int index) {
             }
         }
 
+        // update total fixes counter
         if(fixed > 0){
             counter+= fixed;
             printf("Fixed: %d in-use data blocks not marked in data bitmap for inode: [%d]\n", fixed, index+1);

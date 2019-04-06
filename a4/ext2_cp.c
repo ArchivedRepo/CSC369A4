@@ -35,12 +35,12 @@ int main(int argc, char** argv) {
 
     // check if the file to copy is regular file
     if((st.st_mode & S_IFMT) != S_IFREG){
-        fprintf(stderr, "Not regular file.\n");
+        fprintf(stderr, "Source file is not regular file.\n");
         return -ENOENT;
     }
     // check the size of the file to copy
     if(st.st_size > 12*1024 + 256*1024){
-        fprintf(stderr, "File too large.\n");
+        fprintf(stderr, "Source file is too large.\n");
         exit(-ENOSPC);
     }
 
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
     }
     int target_directory = trace_path(path, length - 1);
     if (target_directory == -ENOENT) {
-        fprintf(stderr, "This path doesn't exist\n");
+        fprintf(stderr, "The path to destination is invalid.\n");
         return -ENOENT;
     }
 
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     int find_result = find_in_inode(target_directory, path[length-1], 'd');
     
     if (find_result > 0 || find_result == ERR_WRONG_TYPE) {
-        fprintf(stderr, "The file already exists\n");
+        fprintf(stderr, "File to create already exists.\n");
         return -EEXIST;
     } else if (find_result != -1) {
         //Should never reach here.
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
     // Allocate inode for new file
     int new_inode = allocate_inode();
     if (new_inode == ERR_NO_INODE) {
-        fprintf(stderr, "There is no inode available\n");
+        fprintf(stderr, "There is no free inode.\n");
         return -ENOSPC;
     }
 
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
         // allocate new block for file
         int new_block = allocate_block();
         if (new_block == -1) {
-            fprintf(stderr, "There is no space on the disk!");
+            fprintf(stderr, "There is no free block on the disk.\n");
             return -ENOSPC;
         }
         this_inode->i_block[i] = new_block;
@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
         
         int level_one = allocate_block();
         if(level_one == -1){
-            fprintf(stderr, "There is no space on the disk!");
+            fprintf(stderr, "There is no free block on the disk. \n");
             return -ENOSPC;
         }
         this_inode->i_block[12] = level_one;
@@ -158,11 +158,11 @@ int main(int argc, char** argv) {
         
         unsigned char *indirect_block = disk + EXT2_BLOCK_SIZE * level_one;
         memset(indirect_block, 0, EXT2_BLOCK_SIZE);
-        int pointer_count = 0; // Note: already checked file size, so it won't go over 256
+        int pointer_count = 0;   // Note: already checked file size, so it won't go over 256
         while(size_remain > 0){
             int new_block = allocate_block();
             if (new_block == -1) {
-                fprintf(stderr, "There is no space on the disk!");
+                fprintf(stderr, "There is no free block on the disk. \n");
                 return -ENOSPC;
             }
 
