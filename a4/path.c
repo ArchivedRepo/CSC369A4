@@ -210,6 +210,22 @@ int find_in_inode(int inode, char* name, char type) {
             return result;
         }
     }
+    if (!is_over) {
+        if (this_inode.i_block[12] != 0) {
+            unsigned int *indirect_block = (unsigned int*)
+            (disk+EXT2_BLOCK_SIZE*this_inode.i_block[12]);
+            for (int i = 0; i < 256 && !is_over; i++) {
+                if (indirect_block[i] == 0) {
+                    is_over = 1;
+                    break;
+                }
+                int result = find_in_block(indirect_block[i], name, type);
+                if (result != ERR_NOT_EXIST) {
+                    return result;
+                }
+            }
+        }
+    }
     return ERR_NOT_EXIST;
 }
 
