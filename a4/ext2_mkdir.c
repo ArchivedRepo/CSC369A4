@@ -11,8 +11,7 @@
 #include "path.h"
 #include "ext2.h"
 
-//TODO: Check what to return upon no inode/block available
-//TODO: Implement single indirect in path.c
+
 unsigned char *disk;
 
 int main(int argc, char** argv) {
@@ -21,6 +20,8 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Usage: ext2_mkdir <image file name> <path>");
         exit(1);
     }
+
+    // open disk image
     int fd = open(argv[1], O_RDWR);
 	if(fd == -1) {
 		perror("open");
@@ -38,6 +39,8 @@ int main(int argc, char** argv) {
     struct ext2_inode *inodes = 
     (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
 
+
+    // find destination
     int length;
     char **path = parse_path(argv[2], &length);
     if (path == NULL) {
@@ -49,6 +52,7 @@ int main(int argc, char** argv) {
         return -ENOENT;
     }
 
+    // Check whether the file already exist
     int find_result = find_in_inode(target_directory, path[length-1], 'd');
     if (find_result > 0) {
         fprintf(stderr, "There is a file has the name of the directory to create\n");
@@ -58,8 +62,11 @@ int main(int argc, char** argv) {
         assert(0);
     }
 
+   
+    // add the directory to its parent directory
     struct ext2_dir_entry *new_entry = create_directory(target_directory, path[length-1]);
 
+    // allocate inode for the new directory
     int new_inode = allocate_inode();
     if (new_inode == ERR_NO_INODE) {
         fprintf(stderr, "There is no inode available\n");
@@ -68,6 +75,7 @@ int main(int argc, char** argv) {
     new_entry->inode = new_inode + 1;
     new_entry->file_type = EXT2_FT_DIR;
 
+    // set up info in inode
     struct ext2_inode *this_inode = inodes + new_inode;
     this_inode->i_mode = EXT2_S_IFDIR;
     this_inode->i_size = 1024;
@@ -75,12 +83,16 @@ int main(int argc, char** argv) {
     this_inode->i_blocks = 2;
     this_inode->i_dtime = 0;
     memset(this_inode->i_block, 0, sizeof(unsigned int) * 15);
+
+    // allocate block for the new directory
     int new_block = allocate_block();
     if (new_block == ERR_NO_BLOCK) {
-        fprintf(stderr, "There is no space on the disk!");
+        fprintf(stderr, "There is no free block on the disk. \n");
         return -ENOSPC;
     }
     this_inode->i_block[0] = new_block;
+
+    // set up the first two block entry "." and ".."
     unsigned char *this_block = disk + EXT2_BLOCK_SIZE * new_block;
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry*)this_block;
     cur_entry[0].inode = new_inode + 1;
@@ -100,9 +112,11 @@ int main(int argc, char** argv) {
     //The actual size is 10, but this is currently the last entry
     // rec_len is set to be 1012
     cur_entry[0].rec_len = 1012;
+    
     bd->bg_used_dirs_count++;
     // Increase the link count of the parent directory
     struct ext2_inode *parent = &inodes[target_directory-1];
     parent->i_links_count++;
+    
     return 0;
 }

@@ -349,7 +349,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         if (result != NULL) {
             return result;
         }
-        //need a new block
+        //need a new block for parent directory
         last_nonzero++;
         int new_block = allocate_block();
         if (new_block == -1) {
@@ -380,7 +380,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
             return result;
         }
 
-        //Need a new single indirect block
+        //Need a new single indirect block for parent directory to store this new entry
         int new_indirect_block = allocate_block();
         if (new_indirect_block == -1) {
             fprintf(stderr, "There is no space on the disk!\n");
@@ -393,7 +393,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         unsigned int *indirect_blocks = 
         (unsigned int *)(disk + EXT2_BLOCK_SIZE * new_indirect_block);
 
-        // allocate a block for the new directory
+        // allocate a block to store this new entry
         int new_block = allocate_block();
         if (new_block == -1) {
             fprintf(stderr, "There is no space on the disk\n");
