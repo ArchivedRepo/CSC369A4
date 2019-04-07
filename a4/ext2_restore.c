@@ -17,9 +17,10 @@ unsigned char *disk;
 int main(int argc, char** argv) {
     
     if(argc != 3) {
-        fprintf(stderr, "Usage: ext2_rm <image file name> <path to delete>");
+        fprintf(stderr, "Usage: ext2_restore <image file name> <path to file> \n");
         exit(1);
     }
+
     int fd = open(argv[1], O_RDWR);
 	if(fd == -1) {
 		perror("open");
@@ -33,7 +34,6 @@ int main(int argc, char** argv) {
     }
 
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
-    // struct ext2_super_block *sb = (struct ext2_super_block*)(disk + EXT2_BLOCK_SIZE);
 
     struct ext2_inode *inodes = 
     (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
@@ -41,16 +41,16 @@ int main(int argc, char** argv) {
     int length;
     char **path = parse_path(argv[2], &length);
     if (path == NULL) {
-        fprintf(stderr, "Invalid Path\n");
+        fprintf(stderr, "The path to file is invalid. \n");
         return -1;
     }
     int target_directory = trace_path(path, length - 1);
     if (target_directory == -ENOENT) {
-        fprintf(stderr, "This path doesn't exist");
+        fprintf(stderr, "The path to file is invalid. \n");
         return -ENOENT;
     }
 
-    // Check whether the file already exist
+    // Check whether the file to restore already exist
     int result = find_in_inode(target_directory, path[length-1], 'f');
     if (result > 0 || result == ERR_WRONG_TYPE) {
         fprintf(stderr, "The file you want to restor is already in directory\n");
@@ -58,7 +58,8 @@ int main(int argc, char** argv) {
     }
 
     struct ext2_inode *directory_inode = inodes + (target_directory - 1);
-
+    
+    // find to file to restore and restore it
     int is_over = 0;
     for (int i = 0; i < 12 && !is_over; i++) {
         if (directory_inode->i_block[i] == 0) {

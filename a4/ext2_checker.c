@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
         }
     }
     
-    // Summary of fixed
+    // Summary of fixes
     if(counter == 0){
         printf("No file system inconsistencies detected!\n");
     }else{

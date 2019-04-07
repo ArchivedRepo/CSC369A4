@@ -7,14 +7,16 @@
 #include "ext2.h"
 
 /**
- * Try restore the inode. Return RESTORE_SUCCESS on success;
- * RETURN ERR_OVERWRITTEN if the inode or the datablock in the inode
- * has been allocated.
+ * Helper function for restore_entry_in_block. 
+ * Try restore the inode and dateblock. 
+ * Return RESTORE_SUCCESS on success;
+ * RETURN ERR_OVERWRITTEN if the inode or the datablock in the inode has been allocated.
  */ 
 static int restore_inode(int index);
 
 /**
  * Find the last non-zero entry in the i_block.
+ * Helper function for create_directory (mkdir).
  */
 static int find_last_nonzero(unsigned int *i_block) {
     //The fisr entry should never be 0!
@@ -28,7 +30,8 @@ static int find_last_nonzero(unsigned int *i_block) {
 }
 
 /**
- * Find the last non-zero entry in a 1024 length array
+ * Find the last non-zero entry in a 1024 length array. 
+ * Helper function for create_directory (mkdir).
  */ 
 static int find_last_nonzero_1024(unsigned int* arr) {
     assert(arr[0] != 0);
@@ -41,6 +44,7 @@ static int find_last_nonzero_1024(unsigned int* arr) {
 }
 
 
+// Parse the path provided and return an array of all directory tokens in the path
 char** parse_path(char *path, int *length) {
     if (path[0] == '\0' || path[0] != '/') {
         fprintf(stderr, "Wrong format\n");
@@ -122,6 +126,7 @@ char** parse_path(char *path, int *length) {
     
 }
 
+// Trace the path to find the target directory
 int trace_path(char** path, int length) {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
     struct ext2_inode *inodes = (struct ext2_inode*)
@@ -161,10 +166,14 @@ int trace_path(char** path, int length) {
     return -ENOENT;
 }
 
+
+// find the directory entry with name and given type in the given block
+
 int find_in_block(int block, char* name, char type) {
     unsigned char *this_block = disk + block * EXT2_BLOCK_SIZE;
     struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)this_block;
     int size = 0;
+
     while (size != EXT2_BLOCK_SIZE) {
         size += this_dir->rec_len;
         char this_type = 0;
@@ -174,14 +183,19 @@ int find_in_block(int block, char* name, char type) {
             this_type = 'f';
         } else if (this_dir->file_type == EXT2_FT_DIR) {
             this_type = 'd';
-        } else {
-            fprintf(stderr, "Unexpected type!\n");
+        } else { // should not reach here
+            continue;
         }
+
+        // compare the name of an entry with the name given
         char this_name[EXT2_NAME_LEN];
         strncpy(this_name, this_dir->name, EXT2_NAME_LEN);
         this_name[this_dir->name_len] = '\0';
         if (strcmp(this_name, name) == 0) {
+
+            // if the file is not deleted
             if (this_dir->inode != 0) {
+                // and with the correct type
                 if (this_type == type) {
                     return this_dir->inode;
                 } else {
@@ -193,6 +207,9 @@ int find_in_block(int block, char* name, char type) {
     }
     return ERR_NOT_EXIST;
 }
+
+
+// find the directory with given name and type in the given inode
 
 int find_in_inode(int inode, char* name, char type) {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + (EXT2_BLOCK_SIZE) * 2);
@@ -229,11 +246,13 @@ int find_in_inode(int inode, char* name, char type) {
     return ERR_NOT_EXIST;
 }
 
+// Allocate an inode and mark the inode to be in use in the bitmap.
 int allocate_inode() {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + EXT2_BLOCK_SIZE * 2);
     struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
     char *inode_bitmap = (char*)(disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap);
     int inode_amount = ((struct ext2_super_block *)(disk + 1024))->s_inodes_count;
+    
     for (int i = 0; i < inode_amount; i++) {
         if (!(*(inode_bitmap + i / 8) & (1 << (i % 8)))) {
             *(inode_bitmap + i/8) |= 1 << (i % 8);
@@ -245,11 +264,13 @@ int allocate_inode() {
     return ERR_NO_INODE;
 }
 
+// Allocate an block and mark the inode to be in use in the bitmap. 
 int allocate_block() {
     struct ext2_group_desc *bd = (struct ext2_group_desc*)(disk + EXT2_BLOCK_SIZE * 2);
     struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
     char *block_bitmap = (char*)(disk+ EXT2_BLOCK_SIZE * bd->bg_block_bitmap);
     int block_count = ((struct ext2_super_block *)(disk + 1024))->s_blocks_count;
+    
     for (int i = 0; i < block_count; i++) {
         if (!(*(block_bitmap + i / 8) & (1 << (i % 8)))) {
             *(block_bitmap + i/8) |= 1 << (i % 8);
@@ -263,24 +284,32 @@ int allocate_block() {
 
 /**
  * Try find space and allocate an ext2_dir_entry in the given block.
- * Return the pointer to the struct on success, return NULL on Fail
+ * Return the pointer to the struct on success, return NULL on failure
+ * Helper function for create_directory
  */ 
 static struct ext2_dir_entry* find_space_in_block(unsigned char *block, char *name) {
     int size = 0;
     struct ext2_dir_entry *cur_entry = (struct ext2_dir_entry*)block;
     size += cur_entry->rec_len;
+
+    // get to the last entry in block
     while (size != EXT2_BLOCK_SIZE) {
         cur_entry = (struct ext2_dir_entry*)(block + size);
         size += cur_entry->rec_len;
     }
-    int length_needed = strlen(name) + 8;
+
+    // calculate the actual space needed for the last entry
     int actual_length = 8 + cur_entry->name_len;
     if (actual_length % 4 != 0) {
         actual_length += 4 - actual_length % 4;
     }
     
+    // compare the length needed for new directory with the length left in block 
+    int length_needed = strlen(name) + 8;
     size -= cur_entry->rec_len;
     int length_left = cur_entry ->rec_len - actual_length;
+    
+    // if there is enough space, allocate an entry
     if (length_left > length_needed) {
         cur_entry->rec_len = actual_length;
         cur_entry = (struct ext2_dir_entry*)(block + size + actual_length);
@@ -310,6 +339,7 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
     (struct ext2_inode*)(disk + (EXT2_BLOCK_SIZE)*bd->bg_inode_table);
     struct ext2_inode *this_inode = inodes + (inode - 1);
     int last_nonzero = find_last_nonzero(this_inode->i_block);
+    
     // We don't deal with double/triple indirect
     assert(last_nonzero < 14);
 
@@ -327,7 +357,8 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
             exit(-ENOSPC);
         }
         (this_inode->i_block)[last_nonzero] = new_block;
-        // Clear the disk block
+        
+        // initialize the new disk block
         memset(disk+EXT2_BLOCK_SIZE*new_block, 0, EXT2_BLOCK_SIZE);
         struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)
             (disk + EXT2_BLOCK_SIZE * new_block);
@@ -339,29 +370,38 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         // This is the only directory, set length to 1024
         this_dir->rec_len = 1024;
         return this_dir;
-    } else if (last_nonzero == 11) {// the nonzero is the last direct block {
+
+    // the last nonzero block is the last direct block
+    } else if (last_nonzero == 11) {
         unsigned char *this_block = disk + EXT2_BLOCK_SIZE * (this_inode->i_block)[last_nonzero];
+        
         struct ext2_dir_entry *result = find_space_in_block(this_block, name);
         if (result != NULL) {
             return result;
         }
-        //Need a new block with single indirecton
+
+        //Need a new single indirect block
         int new_indirect_block = allocate_block();
         if (new_indirect_block == -1) {
             fprintf(stderr, "There is no space on the disk!\n");
             exit(-ENOSPC);
         }
-        //Clear the new block
+
+        // initialize the indirect block
         memset(disk+EXT2_BLOCK_SIZE*new_indirect_block, 0, 1024);
         (this_inode->i_block)[12] = new_indirect_block;
         unsigned int *indirect_blocks = 
         (unsigned int *)(disk + EXT2_BLOCK_SIZE * new_indirect_block);
+
+        // allocate a block for the new directory
         int new_block = allocate_block();
         if (new_block == -1) {
             fprintf(stderr, "There is no space on the disk\n");
             exit(-ENOSPC);
         }
         indirect_blocks[0] = new_block;
+
+        // initialize the new block and add the new directory to it 
         memset(disk+EXT2_BLOCK_SIZE*new_block, 0, 1024);
         struct ext2_dir_entry *this_dir = (struct ext2_dir_entry*)
             (disk + EXT2_BLOCK_SIZE * new_block);
@@ -373,11 +413,13 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
         // This is the only directory, set length to 1024
         this_dir->rec_len = 1024;
         return this_dir;
+
+    // the last nonzero block is the single indirect block
     } else if (last_nonzero == 12) {
         unsigned int *blocks = (unsigned int*)(disk + EXT2_BLOCK_SIZE*(this_inode->i_block)[12]);
         int last_nonzero = find_last_nonzero_1024(blocks);
-        unsigned char *this_block = 
-        disk + EXT2_BLOCK_SIZE * blocks[last_nonzero];
+        unsigned char *this_block = disk + EXT2_BLOCK_SIZE * blocks[last_nonzero];
+        
         struct ext2_dir_entry *result = find_space_in_block(this_block, name);
         if (result != NULL) {
             return result;
@@ -386,11 +428,15 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
             exit(-ENOSPC);
         }
         last_nonzero++;
+
+        // allocate a new block
         int new_block = allocate_block();
         if (new_block == -1) {
             fprintf(stderr, "There is no space on the disk\n");
             exit(-ENOSPC);
         }
+
+        // initialize the new block and put the new entry in it
         blocks[last_nonzero] = new_block;
         memset(disk+EXT2_BLOCK_SIZE*new_block, 0, 1024);
         struct ext2_dir_entry *new_entry = (struct ext2_dir_entry*)
@@ -409,19 +455,24 @@ struct ext2_dir_entry* create_directory(int inode, char *name) {
     return NULL;
 }
 
+
+// Try delete the file in the block
 int delete_entry_in_block(int block, char *name) {
     int size = 0;
     unsigned char *this_block = disk + EXT2_BLOCK_SIZE * block;
     struct ext2_dir_entry *last_entry = NULL;
     struct ext2_dir_entry *this_entry = (struct ext2_dir_entry*)this_block;
+    
+    // check if the file to delete is the first entry
     char this_name[this_entry->name_len + 1];
     strncpy(this_name, this_entry->name, this_entry->name_len);
     this_name[this_entry->name_len] = '\0';
     if (strcmp(this_name, name) == 0 && this_entry->inode != 0) {
-        //This is the first entry in the block
+        //set inode to 0 since it is the first entry
         this_entry->inode = 0;
         return DELETE_SUCCESS;
     }
+
     size += this_entry->rec_len;
     while (size < EXT2_BLOCK_SIZE) {
         last_entry = this_entry;
@@ -437,8 +488,11 @@ int delete_entry_in_block(int block, char *name) {
     }
     return ERR_NOT_EXIST;
 }
+
+
 /**
- * Return the size after padding to be a multiple of 4
+ * Return the size after padding to be a multiple of 4.
+ * Helper function for restore
  */ 
 static int padding_size(int actual_length) {
     if (actual_length % 4 == 0) {
@@ -448,13 +502,17 @@ static int padding_size(int actual_length) {
     }
 }
 
+
+// Try restore the file with name in the given block
 int restore_entry_in_block(int block, char* name) {
     unsigned char *this_block = disk + EXT2_BLOCK_SIZE * block;
+    
     struct ext2_dir_entry *this_entry = (struct ext2_dir_entry*)this_block;
-    // Search for the first block
     char this_name[EXT2_NAME_LEN];
     strncpy(this_name, this_entry->name, this_entry->name_len);
     this_name[this_entry->name_len] = '\0';
+
+    // if the file to restore is the first entry
     if (strcmp(this_name, name) == 0) {
         if (this_entry->inode != 0) {
             if (this_entry->file_type == EXT2_FT_DIR) {
@@ -467,20 +525,30 @@ int restore_entry_in_block(int block, char* name) {
             return ERR_OVERWRITTEN;
         }
     }
+
+
     int total_size = 0;
     int this_size = padding_size(8+this_entry->name_len);
     while (total_size < EXT2_BLOCK_SIZE) {
+
+        // if there is no file deleted after this entry, go to the next
         if (this_size == this_entry->rec_len) {
             total_size += this_size;
-        } else { //Search in the gaps
+
+         // otherwise, search in the gaps
+        } else {
             int size = this_size;
             unsigned char *temp = (unsigned char*)this_entry;
+
             while (size < this_entry->rec_len) {
                 unsigned char *temp_pointer = temp + size;
                 struct ext2_dir_entry* temp_entry = (struct ext2_dir_entry*)temp_pointer;
+
                 if (temp_entry->name_len == 0) {
                     break;
                 }
+
+                // check if the temp_entry is the file to restore
                 strncpy(this_name, temp_entry->name, temp_entry->name_len);
                 this_name[temp_entry->name_len] = '\0';
                 if (temp_entry->file_type  == EXT2_FT_DIR) {
@@ -498,8 +566,10 @@ int restore_entry_in_block(int block, char* name) {
                 }
                 size += padding_size(8+temp_entry->name_len);
             }
+
             total_size += this_entry->rec_len;
         }
+
         this_entry = (struct ext2_dir_entry*)(this_block+total_size);
         this_size = padding_size(8+this_entry->name_len);
     }
@@ -507,7 +577,7 @@ int restore_entry_in_block(int block, char* name) {
 }
 
 /**
- * Try restore the inode. Return RESTORE_SUCCESS on success;
+ * Try restore the inode and dateblock. Return RESTORE_SUCCESS on success;
  * RETURN ERR_OVERWRITTEN if the inode or the datablock in the inode
  * has been allocated.
  */ 
@@ -519,12 +589,14 @@ static int restore_inode(int index) {
     struct ext2_inode *inodes = (struct ext2_inode*)(disk + EXT2_BLOCK_SIZE*bd->bg_inode_table);
     int block_count = 0;
     
+    // check whether its inode is used by others 
     if (!(*(inode_bitmap + ((index - 1) / 8)) & (1 << ((index - 1) % 8)))) {
         *(inode_bitmap + ((index - 1) / 8)) |= (1 << ((index - 1) % 8));
     } else {
         return ERR_OVERWRITTEN;
     }
 
+    // check whether its block has been overwritten, if not, restore the file
     struct ext2_inode* this_inode = inodes + (index - 1);
     int is_over = 0;
     for (int i = 0; i < 12 && !is_over; i++) {
@@ -533,6 +605,7 @@ static int restore_inode(int index) {
             break;
         }
         int this_block = this_inode->i_block[i];
+
         if (!(*(block_bitmap + (this_block-1) / 8) & (1 << ((this_block - 1) % 8)))) {
             *(block_bitmap + (this_block - 1) / 8) |= (1 << ((this_block - 1) % 8));
             block_count++;
@@ -540,6 +613,8 @@ static int restore_inode(int index) {
             return ERR_OVERWRITTEN;
         }
     }
+
+    // update info after restore the file
     if (is_over) {
         bd->bg_free_blocks_count -= block_count;
         sb->s_free_blocks_count -= block_count;
@@ -549,6 +624,8 @@ static int restore_inode(int index) {
         this_inode->i_links_count++;
         return RESTORE_SUCCESS; 
     }
+
+    // check single indirect block
     if (this_inode->i_block[12] != 0) {
         int temp = this_inode->i_block[12];
         if (!(*(block_bitmap + (temp - 1) / 8) & (1 << ((temp - 1) % 8)))) {

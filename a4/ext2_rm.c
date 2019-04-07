@@ -17,9 +17,10 @@ unsigned char *disk;
 int main(int argc, char** argv) {
     
     if(argc != 3) {
-        fprintf(stderr, "Usage: ext2_rm <image file name> <path to delete>");
+        fprintf(stderr, "Usage: ext2_rm <image file name> <path to link> \n");
         exit(1);
     }
+
     int fd = open(argv[1], O_RDWR);
 	if(fd == -1) {
 		perror("open");
@@ -46,26 +47,28 @@ int main(int argc, char** argv) {
     }
     int target_directory = trace_path(path, length - 1);
     if (target_directory == -ENOENT) {
-        fprintf(stderr, "This path doesn't exist");
+        fprintf(stderr, "The path to the file to delete is invalid. \n");
         return -ENOENT;
     }
 
+
+    // check whether the file to delete exists and not a directory
     int find_result = find_in_inode(target_directory, path[length-1], 'f');
     if (find_result == ERR_WRONG_TYPE) {
-        // Search again to see if this is a symbolic link;
         find_result = find_in_inode(target_directory, path[length-1], 'l');
         if (find_result == ERR_WRONG_TYPE) {
             fprintf(stderr, "%s is a directory\n", argv[2]);
             return -ENOENT;
         }
     } else if (find_result == ERR_NOT_EXIST) {
-        fprintf(stderr, "File not Exists\n");
+        fprintf(stderr, "File to delete does not exist. \n");
         return -ENOENT;
     }
 
     struct ext2_inode *directory_inode = inodes + (target_directory - 1);
 
-    //find the directory entry of the file
+
+    //find the directory entry of the file and delete it
     int is_over = 0;
     for (int i = 0; i < 12 && !is_over; i++) {
         if (directory_inode->i_block[i] == 0) {
@@ -93,22 +96,29 @@ int main(int argc, char** argv) {
         }
     }
 
-    // update delete time, inode bitmap, block bitmap, group descriptor
-    // and super block;
-    
+
+    // update link counts
     struct ext2_inode *delete_file = inodes + (find_result - 1);
     delete_file->i_links_count--;
+    // if the file is not actually deleted
     if (delete_file->i_links_count != 0) {
         return 0;
     }
+
+
+    // otherwise,  update delete time, inode bitmap, block bitmap, group descriptor and super block
     unsigned char *inode_bitmap = disk + EXT2_BLOCK_SIZE * bd->bg_inode_bitmap;
     unsigned char *block_bitmap = disk + EXT2_BLOCK_SIZE * bd->bg_block_bitmap;
     time_t delete_time;
     time(&delete_time);
     delete_file->i_dtime = delete_time;
+
+    // update inode
     *(inode_bitmap + (find_result-1) / 8) &= ~(1 << ((find_result - 1) % 8));
     bd->bg_free_inodes_count++;
     sb->s_free_inodes_count++;
+
+    // update block
     is_over = 0;
     for (int i = 0; i < 12 && !is_over; i++) {
         if (delete_file->i_block[i] == 0) {

@@ -1,4 +1,3 @@
-//#define ERR_NAME_EXIST -2
 #define ERR_NOT_EXIST -1
 #define ERR_NO_INODE -1
 #define ERR_NO_BLOCK -1
